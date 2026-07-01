@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import InputField from './InputField';
+import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../services/authService';
 
 const LoginForm = () => {
   const [formData, setFormData] = useState({
@@ -12,6 +15,9 @@ const LoginForm = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [globalError, setGlobalError] = useState('');
+  
+  const navigate = useNavigate();
+  const { loginContext } = useAuth();
 
   const validateForm = () => {
     const newErrors = {};
@@ -62,17 +68,27 @@ const LoginForm = () => {
 
     setIsLoading(true);
 
-    // TODO: connect to POST /api/auth/login in Story 2
-    // Expected payload: { email, password, rememberMe }
-    console.log('Login Payload:', formData);
+    try {
+      // Call the real auth API
+      const response = await authService.login(
+        formData.email,
+        formData.password,
+        formData.rememberMe
+      );
 
-    // Simulate API call delay
-    setTimeout(() => {
+      if (response.success) {
+        // Store auth state globally
+        loginContext(response.data.token, response.data.user);
+        
+        // Navigate to the placeholder dashboard
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      // Display the error returned by the backend (e.g., 'Invalid credentials')
+      setGlobalError(error.message);
+    } finally {
       setIsLoading(false);
-      // Simulate a generic error response for testing purposes
-      // setGlobalError('Invalid email or password');
-      console.log('Login successful! (Simulated)');
-    }, 1500);
+    }
   };
 
   return (
