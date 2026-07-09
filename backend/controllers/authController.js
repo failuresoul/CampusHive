@@ -68,6 +68,49 @@ const login = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/auth/me
+ * Returns the profile of the currently authenticated user.
+ * Requires: authMiddleware (any role)
+ */
+const getMe = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'name', 'email', 'role', 'createdAt'],
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    return res.status(200).json({ success: true, data: { user } });
+  } catch (error) {
+    console.error('getMe error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * GET /api/auth/admin/users
+ * Returns a list of all users in the system.
+ * Requires: authMiddleware + roleMiddleware(['admin'])
+ */
+const listUsers = async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: ['id', 'name', 'email', 'role', 'createdAt'],
+      order: [['createdAt', 'ASC']],
+    });
+
+    return res.status(200).json({ success: true, data: { users } });
+  } catch (error) {
+    console.error('listUsers error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 module.exports = {
   login,
+  getMe,
+  listUsers,
 };
