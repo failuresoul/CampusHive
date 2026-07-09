@@ -1,15 +1,42 @@
 const { Sequelize } = require('sequelize');
+const path = require('path');
 require('dotenv').config();
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME || 'campushive',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || '',
-  {
-    host: process.env.DB_HOST || 'localhost',
-    dialect: 'mysql',
-    logging: false, // Set to true to see SQL queries in console
-  }
-);
+// Use SQLite by default so the app works without a MySQL installation.
+// Set DB_DIALECT=mysql in .env (and fill in DB_HOST, DB_USER, DB_PASSWORD, DB_NAME)
+// if you want to connect to a real MySQL server instead.
+const dialect = process.env.DB_DIALECT || 'sqlite';
+
+let sequelize;
+
+if (dialect === 'mysql') {
+  sequelize = new Sequelize(
+    process.env.DB_NAME || 'campushive',
+    process.env.DB_USER || 'root',
+    process.env.DB_PASSWORD || '',
+    {
+      host: process.env.DB_HOST || 'localhost',
+      dialect: 'mysql',
+      logging: false,
+    }
+  );
+} else {
+  // SQLite — stores everything in a local file, no server needed
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: path.join(__dirname, '..', 'campushive.sqlite'),
+    logging: false,
+    pool: {
+      max: 1,
+      min: 1,
+      idle: 10000,
+      acquire: 10000,
+    },
+    dialectOptions: {
+      // Increase busy timeout so concurrent transactions wait for each other in SQLite
+      timeout: 10000
+    }
+  });
+}
 
 module.exports = sequelize;
