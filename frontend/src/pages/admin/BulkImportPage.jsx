@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import CsvUploadZone from '../../components/admin/CsvUploadZone';
 import CsvPreviewTable from '../../components/admin/CsvPreviewTable';
 import { parseAndValidateCsv } from '../../utils/csvValidation';
+import { bulkImportStudents } from '../../services/studentService';
 
 const BulkImportPage = () => {
   const { user, logoutContext } = useAuth();
@@ -22,7 +23,9 @@ const BulkImportPage = () => {
   const [parsedRows, setParsedRows] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [importSuccess, setImportSuccess] = useState(false);
+  const [importResults, setImportResults] = useState(null);
+  const [importError, setImportError] = useState(null);
+  const { token } = useAuth();
 
   const handleLogout = () => {
     logoutContext();
@@ -31,7 +34,8 @@ const BulkImportPage = () => {
 
   const handleFileSelected = async (file) => {
     setIsProcessing(true);
-    setImportSuccess(false);
+    setImportResults(null);
+    setImportError(null);
     try {
       const results = await parseAndValidateCsv(file);
       setParsedRows(results);
@@ -50,22 +54,19 @@ const BulkImportPage = () => {
     if (validRows.length === 0) return;
 
     setIsImporting(true);
+    setImportError(null);
 
     try {
-      // ─────────────────────────────────────────────────────────────────────
-      // TODO: connect to POST /api/students/bulk-import in Story 4
-      // ─────────────────────────────────────────────────────────────────────
-      
-      console.log('[BulkImportPage] Submitting valid rows to backend stub:');
-      console.log(validRows.map(r => r.data));
-
-      // Simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      setImportSuccess(true);
-      setParsedRows([]);
+      const response = await bulkImportStudents(validRows, token);
+      if (response.success) {
+        setImportResults(response.data);
+        setParsedRows([]);
+      } else {
+        setImportError(response.message || 'Failed to import students.');
+      }
     } catch (err) {
       console.error('Import failed', err);
+      setImportError(err.response?.data?.message || 'A network or server error occurred. Please try again.');
     } finally {
       setIsImporting(false);
     }
@@ -161,21 +162,65 @@ const BulkImportPage = () => {
           </div>
         </div>
 
-        {importSuccess && (
-          <div className="mb-8 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 animate-slide-up">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+        {importError && (
+          <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-slide-up">
+            <span className="text-red-500 font-bold flex-shrink-0 mt-0.5">!</span>
             <div>
-              <h3 className="text-sm font-semibold text-emerald-800">Import Successful (Stub)</h3>
-              <p className="text-sm text-emerald-700 mt-1">
-                The students have been imported successfully. Check the console to see the logged payload.
-              </p>
+              <h3 className="text-sm font-semibold text-red-800">Import Failed</h3>
+              <p className="text-sm text-red-700 mt-1">{importError}</p>
             </div>
             <button 
-              onClick={() => setImportSuccess(false)}
-              className="ml-auto text-emerald-600 hover:text-emerald-800 transition-colors text-sm"
+              onClick={() => setImportError(null)}
+              className="ml-auto text-red-600 hover:text-red-800 transition-colors text-sm"
             >
               Dismiss
             </button>
+          </div>
+        )}
+
+        {importResults && (
+          <div className="mb-8 p-6 bg-white border border-gray-200 shadow-sm rounded-xl animate-slide-up space-y-4">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-3">
+                {importResults.imported.length > 0 ? (
+                  <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                ) : (
+                  <span className="h-6 w-6 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold">!</span>
+                )}
+                <h3 className="text-lg font-bold text-gray-900">Import Results</h3>
+              </div>
+              <button 
+                onClick={() => setImportResults(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors text-sm font-medium"
+              >
+                Dismiss
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+                <p className="text-2xl font-bold text-emerald-700">{importResults.imported.length}</p>
+                <p className="text-sm text-emerald-600 font-medium">Successfully Imported</p>
+              </div>
+              <div className="bg-amber-50 p-4 rounded-lg border border-amber-100">
+                <p className="text-2xl font-bold text-amber-700">{importResults.skipped.length}</p>
+                <p className="text-sm text-amber-600 font-medium">Rows Skipped</p>
+              </div>
+            </div>
+
+            {importResults.skipped.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Skipped Rows Details:</h4>
+                <ul className="text-sm text-gray-600 space-y-1 max-h-40 overflow-y-auto bg-gray-50 p-3 rounded-lg border border-gray-100">
+                  {importResults.skipped.map((skip, idx) => (
+                    <li key={idx}>
+                      <span className="font-semibold">Row {skip.row}</span> 
+                      {skip.email ? ` (${skip.email})` : ''}: <span className="text-red-500">{skip.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

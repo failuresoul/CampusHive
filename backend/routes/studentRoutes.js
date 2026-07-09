@@ -13,4 +13,13 @@ router.post(
   studentController.previewRollNumber
 );
 
+// POST /api/students/bulk-import
+// Bulk import students from a CSV payload
+router.post(
+  '/bulk-import',
+  authMiddleware,
+  roleMiddleware(['admin']),
+  studentController.bulkImport
+);
+
 module.exports = router;

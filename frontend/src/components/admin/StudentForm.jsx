@@ -7,6 +7,7 @@ import InputField from '../auth/InputField';
 import SelectField from '../shared/SelectField';
 import DatePickerField from '../shared/DatePickerField';
 import { useAuth } from '../../context/AuthContext';
+import { bulkImportStudents } from '../../services/studentService';
 
 // ─── Static option lists ──────────────────────────────────────────────────────
 
@@ -228,31 +229,24 @@ const StudentForm = ({ onSuccess, onCancel }) => {
     setIsLoading(true);
 
     try {
-      // ─────────────────────────────────────────────────────────────────────
-      // TODO: connect to POST /api/students once Story 2 (roll number) and
-      //       the backend (Story 4) are ready.
-      //
-      // Payload shape:
-      //   { name, email, dob, department, batch, phone }
-      // ─────────────────────────────────────────────────────────────────────
-
-      // Simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // eslint-disable-next-line no-console
-      console.log('[StudentForm] Form submitted (stub). Payload:', {
+      const payload = {
         name:       formData.name.trim(),
         email:      formData.email.trim().toLowerCase(),
         dob:        formData.dob,
         department: formData.department,
         batch:      formData.batch,
         phone:      formData.phone.trim(),
-      });
+      };
+
+      const res = await bulkImportStudents([{ originalIndex: 1, data: payload }], token);
+
+      if (res.data?.skipped?.length > 0) {
+        throw new Error(res.data.skipped[0].reason);
+      }
 
       setToast({
         type: 'success',
-        message:
-          'Student registered successfully! (Stub — no backend call was made. Roll number will be assigned in Story 2.)',
+        message: 'Student registered successfully!',
       });
 
       // Optionally notify parent and reset
@@ -262,7 +256,7 @@ const StudentForm = ({ onSuccess, onCancel }) => {
     } catch (err) {
       setToast({
         type: 'error',
-        message: err?.message ?? 'Something went wrong. Please try again.',
+        message: err?.response?.data?.message || err?.message || 'Something went wrong. Please try again.',
       });
     } finally {
       setIsLoading(false);
@@ -445,7 +439,7 @@ const StudentForm = ({ onSuccess, onCancel }) => {
                 className="inline-block h-2 w-2 rounded-full bg-amber-400"
                 aria-hidden="true"
               />
-              Auto-assigned upon registration (Story 2)
+              Auto-assigned upon registration
             </p>
           )}
         </div>

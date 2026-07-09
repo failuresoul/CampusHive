@@ -152,24 +152,6 @@ const AddStudentPage = () => {
           <StudentForm onSuccess={handleSuccess} onCancel={handleCancel} />
         </div>
 
-        {/* Payload documentation note (for Story 2 & Story 4) */}
-        <aside
-          aria-label="Developer note"
-          className="mt-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1"
-        >
-          <p className="font-semibold text-amber-900">📦 Expected Student Payload (for Story 2 &amp; Story 4)</p>
-          <pre className="overflow-x-auto text-amber-700 font-mono whitespace-pre-wrap leading-relaxed">
-{`{
-  name:       string   // full name, min 2 chars
-  email:      string   // used as login credential
-  dob:        string   // ISO date "YYYY-MM-DD"
-  department: string   // "CSE" | "EEE" | "ME" | "CE" | "BBA" | "ENG"
-  batch:      string   // e.g. "2023-2024"
-  phone:      string   // optional; 7–15 digits
-  // rollNumber → generated server-side (Story 2)
-}`}
-          </pre>
-        </aside>
       </main>
     </div>
   );
