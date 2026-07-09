@@ -77,11 +77,18 @@ const LoginForm = () => {
       );
 
       if (response.success) {
+        const { token, user } = response.data;
+
         // Store auth state globally
-        loginContext(response.data.token, response.data.user);
-        
-        // Navigate to the placeholder dashboard
-        navigate('/dashboard');
+        loginContext(token, user);
+
+        // Redirect to the role-specific dashboard
+        const roleRoutes = {
+          admin: '/admin/dashboard',
+          teacher: '/teacher/dashboard',
+          student: '/student/dashboard',
+        };
+        navigate(roleRoutes[user.role] ?? '/login');
       }
     } catch (error) {
       // Display the error returned by the backend (e.g., 'Invalid credentials')

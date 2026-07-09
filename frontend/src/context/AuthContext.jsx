@@ -2,26 +2,54 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
+/**
+ * Decode a JWT payload WITHOUT verifying the signature (client-side only).
+ * Returns null if the token is malformed or expired.
+ */
+const decodeToken = (token) => {
+  try {
+    const base64Payload = token.split('.')[1];
+    const payload = JSON.parse(atob(base64Payload));
+    // exp is in seconds; Date.now() is in ms
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      return null; // expired
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored token and user on mount
+    // Rehydrate auth state from localStorage on every page load / refresh
     const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    const storedUser  = localStorage.getItem('user');
 
     if (storedToken && storedUser) {
-      try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Failed to parse user from local storage:', error);
+      const payload = decodeToken(storedToken);
+
+      if (payload) {
+        // Token is present and not expired — restore session
+        try {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        } catch {
+          // Corrupted user JSON — clear everything
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      } else {
+        // Token expired or malformed — clear stale data
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
     }
+
     setLoading(false);
   }, []);
 
