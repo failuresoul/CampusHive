@@ -26,6 +26,16 @@ if (dialect === 'mysql') {
     dialect: 'sqlite',
     storage: path.join(__dirname, '..', 'campushive.sqlite'),
     logging: false,
+    pool: {
+      max: 1,
+      min: 1,
+      idle: 10000,
+      acquire: 10000,
+    },
+    dialectOptions: {
+      // Increase busy timeout so concurrent transactions wait for each other in SQLite
+      timeout: 10000
+    }
   });
 }
 
