@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext';
 
 // Pages
 import LoginPage from './pages/LoginPage';
+import NotAuthorizedPage from './pages/NotAuthorizedPage';
 import AdminDashboard from './pages/dashboards/AdminDashboard';
 import TeacherDashboard from './pages/dashboards/TeacherDashboard';
 import StudentDashboard from './pages/dashboards/StudentDashboard';
@@ -13,13 +14,14 @@ import StudentDashboard from './pages/dashboards/StudentDashboard';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 /**
+ * PublicRoute
  * If the user is already authenticated and lands on /login or /,
  * bounce them straight to their role-specific dashboard.
  */
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading) return null; // Let ProtectedRoute handle the spinner
+  if (loading) return null; // spinner is handled by ProtectedRoute on protected pages
 
   if (user) {
     const roleRoutes = {
@@ -39,7 +41,7 @@ function App() {
       <BrowserRouter>
         <div className="App">
           <Routes>
-            {/* Root: redirect to login (PublicRoute will bounce to dashboard if already logged in) */}
+            {/* Root */}
             <Route
               path="/"
               element={
@@ -59,11 +61,17 @@ function App() {
               }
             />
 
-            {/* Role-specific protected dashboards */}
+            {/* 403 — wrong role */}
+            <Route path="/403" element={<NotAuthorizedPage />} />
+
+            {/* ── Role-specific protected dashboards ─────────────────────────
+                allowedRoles enforces that only the correct role can enter.
+                Wrong-role users are sent to /403; unauthenticated to /login.
+            ──────────────────────────────────────────────────────────────── */}
             <Route
               path="/admin/dashboard"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['admin']}>
                   <AdminDashboard />
                 </ProtectedRoute>
               }
@@ -71,7 +79,7 @@ function App() {
             <Route
               path="/teacher/dashboard"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['teacher']}>
                   <TeacherDashboard />
                 </ProtectedRoute>
               }
@@ -79,13 +87,13 @@ function App() {
             <Route
               path="/student/dashboard"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['student']}>
                   <StudentDashboard />
                 </ProtectedRoute>
               }
             />
 
-            {/* Legacy placeholder — keep working for any old bookmarks */}
+            {/* Legacy placeholder */}
             <Route path="/dashboard" element={<Navigate to="/login" replace />} />
 
             {/* Catch-all */}
