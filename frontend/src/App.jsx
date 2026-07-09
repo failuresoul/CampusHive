@@ -1,31 +1,37 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import LoginPage from './pages/LoginPage';
+import { useAuth } from './context/AuthContext';
 
-// A simple placeholder dashboard component
-const DashboardPlaceholder = () => (
-  <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-    <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-md text-center">
-      <h2 className="text-3xl font-extrabold text-gray-900">Dashboard</h2>
-      <p className="mt-2 text-sm text-gray-600">
-        Welcome to your portal! Role-specific features will be added in Story 3.
-      </p>
-      <div className="mt-6">
-        <button
-          onClick={() => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-          }}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Sign Out
-        </button>
-      </div>
-    </div>
-  </div>
-);
+// Pages
+import LoginPage from './pages/LoginPage';
+import AdminDashboard from './pages/dashboards/AdminDashboard';
+import TeacherDashboard from './pages/dashboards/TeacherDashboard';
+import StudentDashboard from './pages/dashboards/StudentDashboard';
+
+// Guards
+import ProtectedRoute from './components/auth/ProtectedRoute';
+
+/**
+ * If the user is already authenticated and lands on /login or /,
+ * bounce them straight to their role-specific dashboard.
+ */
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return null; // Let ProtectedRoute handle the spinner
+
+  if (user) {
+    const roleRoutes = {
+      admin: '/admin/dashboard',
+      teacher: '/teacher/dashboard',
+      student: '/student/dashboard',
+    };
+    return <Navigate to={roleRoutes[user.role] ?? '/login'} replace />;
+  }
+
+  return children;
+};
 
 function App() {
   return (
@@ -33,10 +39,56 @@ function App() {
       <BrowserRouter>
         <div className="App">
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/dashboard" element={<DashboardPlaceholder />} />
-            {/* Fallback route */}
+            {/* Root: redirect to login (PublicRoute will bounce to dashboard if already logged in) */}
+            <Route
+              path="/"
+              element={
+                <PublicRoute>
+                  <Navigate to="/login" replace />
+                </PublicRoute>
+              }
+            />
+
+            {/* Login — redirect away if already authenticated */}
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              }
+            />
+
+            {/* Role-specific protected dashboards */}
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teacher/dashboard"
+              element={
+                <ProtectedRoute>
+                  <TeacherDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/dashboard"
+              element={
+                <ProtectedRoute>
+                  <StudentDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Legacy placeholder — keep working for any old bookmarks */}
+            <Route path="/dashboard" element={<Navigate to="/login" replace />} />
+
+            {/* Catch-all */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </div>
