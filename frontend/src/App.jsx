@@ -9,6 +9,7 @@ import NotAuthorizedPage from './pages/NotAuthorizedPage';
 import AdminDashboard from './pages/dashboards/AdminDashboard';
 import TeacherDashboard from './pages/dashboards/TeacherDashboard';
 import StudentDashboard from './pages/dashboards/StudentDashboard';
+import AddStudentPage from './pages/admin/AddStudentPage';
 
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -73,6 +74,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/students/add"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AddStudentPage />
                 </ProtectedRoute>
               }
             />

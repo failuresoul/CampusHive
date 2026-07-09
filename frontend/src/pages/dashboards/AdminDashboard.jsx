@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   ShieldCheck,
@@ -8,6 +8,8 @@ import {
   BarChart3,
   LogOut,
   Bell,
+  UserPlus,
+  Upload,
 } from 'lucide-react';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
@@ -82,13 +84,34 @@ const AdminDashboard = () => {
           <StatCard icon={BarChart3} label="Reports" value="—" color="bg-sky-500" />
         </div>
 
-        {/* Coming Soon */}
-        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-          <ShieldCheck className="h-10 w-10 text-indigo-300 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-gray-700">Admin Panel</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            Full admin features will be built out in the next epic.
-          </p>
+        {/* Quick Actions */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Link
+              to="/admin/students/add"
+              id="admin-add-student-link"
+              className="group flex items-center gap-4 p-4 rounded-xl border border-dashed border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-200"
+            >
+              <div className="h-10 w-10 rounded-xl bg-indigo-100 group-hover:bg-indigo-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                <UserPlus className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Add Student</p>
+                <p className="text-xs text-gray-500">Register a new student</p>
+              </div>
+            </Link>
+
+            <div className="flex items-center gap-4 p-4 rounded-xl border border-dashed border-gray-200 opacity-50 cursor-not-allowed">
+              <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+                <Upload className="h-5 w-5 text-gray-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-700">Import CSV</p>
+                <p className="text-xs text-gray-400">Coming in Story 4</p>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
