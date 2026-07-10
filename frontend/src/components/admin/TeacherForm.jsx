@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Loader2,
   RotateCcw,
@@ -9,11 +9,21 @@ import {
   CheckCircle2,
   AlertCircle,
   Lock,
+  Copy,
+  Check,
+  GraduationCap,
+  Mail,
+  Building2,
+  BadgeCheck,
 } from 'lucide-react';
 
 // Shared / Auth components
 import InputField from '../auth/InputField';
 import SelectField from '../shared/SelectField';
+
+// Context + Service
+import { useAuth } from '../../context/AuthContext';
+import { registerTeacher } from '../../services/teacherService';
 
 // Utilities
 import { generatePassword } from '../../utils/passwordGenerator';
@@ -39,47 +49,35 @@ const DESIGNATION_OPTIONS = [
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-/**
- * Validates the teacher form fields.
- * @param {Object} data – current form state
- * @returns {{ errors: Object, isValid: boolean }}
- */
 function validate(data) {
   const errors = {};
 
-  // Full name (required, ≥ 2 chars)
   if (!data.name.trim()) {
     errors.name = 'Full name is required.';
   } else if (data.name.trim().length < 2) {
     errors.name = 'Full name must be at least 2 characters.';
   }
 
-  // Email (required, valid format — doubles as login credential)
   if (!data.email.trim()) {
     errors.email = 'Email address is required.';
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
     errors.email = 'Please enter a valid email address.';
   }
 
-  // Department (required)
   if (!data.department) {
     errors.department = 'Please select a department.';
   }
 
-  // Designation (required)
   if (!data.designation) {
     errors.designation = 'Please select a designation.';
   }
 
-  // Phone – optional, but validated when provided
   if (data.phone.trim()) {
-    // Accepts: +8801XXXXXXXXX, 01XXXXXXXXX, or generic international +XX…
     if (!/^\+?[0-9]{7,15}$/.test(data.phone.replace(/[\s\-()]/g, ''))) {
       errors.phone = 'Please enter a valid phone number (7–15 digits).';
     }
   }
 
-  // Temporary password (required, min 8 chars)
   if (!data.password) {
     errors.password = 'A temporary password is required.';
   } else if (data.password.length < 8) {
@@ -97,14 +95,13 @@ const buildInitialState = () => ({
   department:  '',
   designation: '',
   phone:       '',
-  password:    generatePassword(),  // auto-generate on first mount
+  password:    generatePassword(),
 });
 
 // ─── Toast Banner ─────────────────────────────────────────────────────────────
 
 function Toast({ type, message, onDismiss }) {
   if (!message) return null;
-
   const isSuccess = type === 'success';
   return (
     <div
@@ -133,6 +130,131 @@ function Toast({ type, message, onDismiss }) {
   );
 }
 
+// ─── Copy-to-clipboard button ─────────────────────────────────────────────────
+
+function CopyButton({ value, label }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API blocked — silently ignore
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md text-indigo-600 hover:bg-indigo-50 border border-indigo-200 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      aria-label={`Copy ${label}`}
+    >
+      {copied ? (
+        <>
+          <Check className="h-3.5 w-3.5 text-emerald-500" />
+          Copied
+        </>
+      ) : (
+        <>
+          <Copy className="h-3.5 w-3.5" />
+          Copy
+        </>
+      )}
+    </button>
+  );
+}
+
+// ─── Credential Card (shown after successful registration) ────────────────────
+
+function CredentialCard({ teacher, tempPassword, onRegisterAnother }) {
+  return (
+    <div className="space-y-6 animate-slide-up" role="region" aria-label="Registration successful">
+      {/* Success header */}
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+        <CheckCircle2 className="h-6 w-6 text-emerald-500 flex-shrink-0" />
+        <div>
+          <p className="font-semibold text-emerald-800">Teacher registered successfully!</p>
+          <p className="text-xs text-emerald-600 mt-0.5">
+            Share the credentials below with the teacher so they can log in.
+          </p>
+        </div>
+      </div>
+
+      {/* Credential details */}
+      <div className="rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+            Login Credentials to Share
+          </h3>
+        </div>
+
+        <div className="divide-y divide-gray-100">
+          {/* Name */}
+          <div className="flex items-center gap-3 px-4 py-3">
+            <GraduationCap className="h-4 w-4 text-indigo-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-400">Full Name</p>
+              <p className="text-sm font-medium text-gray-900 truncate">{teacher.name}</p>
+            </div>
+          </div>
+
+          {/* Email */}
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Mail className="h-4 w-4 text-indigo-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-400">Login Email</p>
+              <p className="text-sm font-medium text-gray-900 truncate">{teacher.email}</p>
+            </div>
+            <CopyButton value={teacher.email} label="email" />
+          </div>
+
+          {/* Temp password */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50">
+            <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-amber-600 font-medium">Temporary Password</p>
+              <p className="text-sm font-mono font-semibold text-amber-900 tracking-wider break-all">
+                {tempPassword}
+              </p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                ⚠ Share securely — the teacher must change this on first login.
+              </p>
+            </div>
+            <CopyButton value={tempPassword} label="password" />
+          </div>
+
+          {/* Department + Designation */}
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Building2 className="h-4 w-4 text-indigo-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-400">Department · Designation</p>
+              <p className="text-sm font-medium text-gray-900">
+                {teacher.department} · {teacher.designation}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          id="teacher-register-another-btn"
+          type="button"
+          onClick={onRegisterAnother}
+          className="flex items-center justify-center gap-2 flex-1 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm transition-all duration-200"
+        >
+          <UserPlus className="h-4 w-4" aria-hidden="true" />
+          Register Another Teacher
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Password field with regenerate button ────────────────────────────────────
 
 function PasswordField({ value, onChange, onRegenerate, error, disabled }) {
@@ -148,7 +270,6 @@ function PasswordField({ value, onChange, onRegenerate, error, disabled }) {
       </label>
 
       <div className="flex gap-2">
-        {/* Password input */}
         <div className="relative flex-1">
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
             <Lock className="h-4 w-4" aria-hidden="true" />
@@ -167,7 +288,6 @@ function PasswordField({ value, onChange, onRegenerate, error, disabled }) {
               error ? 'input-error' : ''
             }`}
           />
-          {/* Show / hide toggle */}
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
@@ -183,7 +303,6 @@ function PasswordField({ value, onChange, onRegenerate, error, disabled }) {
           </button>
         </div>
 
-        {/* Regenerate button */}
         <button
           id="teacher-password-regen-btn"
           type="button"
@@ -198,13 +317,8 @@ function PasswordField({ value, onChange, onRegenerate, error, disabled }) {
         </button>
       </div>
 
-      {/* Error or hint */}
       {error ? (
-        <p
-          id="teacher-password-error"
-          className="mt-1.5 text-sm text-red-600 animate-fade-in"
-          role="alert"
-        >
+        <p id="teacher-password-error" className="mt-1.5 text-sm text-red-600 animate-fade-in" role="alert">
           {error}
         </p>
       ) : (
@@ -222,35 +336,29 @@ function PasswordField({ value, onChange, onRegenerate, error, disabled }) {
 /**
  * TeacherForm
  *
- * A registration form for adding a new teacher (admin-only).
- * All fields are validated client-side.
+ * Registration form for adding a new teacher (admin-only).
+ * On successful submission, replaces the form with a CredentialCard
+ * showing the teacher's login email and temporary password for the admin
+ * to share out-of-band. A "Register Another" button resets the form.
  *
- * Submission is currently stubbed — see handleSubmit below.
- * TODO (Story 8): connect to POST /api/teachers once the backend endpoint is ready.
- *
- * Expected payload shape (for Story 8 integration):
- * {
- *   name:        string   // teacher's full name
- *   email:       string   // used as login credential
- *   department:  string   // e.g. "CSE" | "EEE" | "ME" | "CE" | "BBA" | "ENG"
- *   designation: string   // e.g. "Lecturer" | "Assistant Professor" | "Associate Professor" | "Professor"
- *   phone:       string   // optional; digits only after stripping formatting
- *   password:    string   // initial login password; teacher should change on first login
- * }
+ * Wired to POST /api/teachers (Story 8).
  */
 const TeacherForm = ({ onSuccess, onCancel }) => {
-  const [formData, setFormData] = useState(buildInitialState);
-  const [errors, setErrors]     = useState({});
+  const { token } = useAuth();
+
+  const [formData, setFormData]   = useState(buildInitialState);
+  const [errors, setErrors]       = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [toast, setToast]       = useState({ type: '', message: '' });
+  const [errorBanner, setErrorBanner] = useState('');
+
+  // Credential card state — set after a successful API call
+  const [confirmed, setConfirmed] = useState(null); // { teacher, tempPassword }
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-
-    // Clear per-field error on user interaction
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -267,21 +375,13 @@ const TeacherForm = ({ onSuccess, onCancel }) => {
   const handleReset = () => {
     setFormData(buildInitialState());
     setErrors({});
-    setToast({ type: '', message: '' });
+    setErrorBanner('');
+    setConfirmed(null);
   };
 
-  /**
-   * handleSubmit (STUB)
-   *
-   * TODO: connect to POST /api/teachers in Story 8.
-   *
-   * NOTE (security): In a real implementation, never log the password to the
-   * console. We do so here only because this is a stub stage — remove the
-   * password from the console.log before connecting to the backend.
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setToast({ type: '', message: '' });
+    setErrorBanner('');
 
     const { errors: newErrors, isValid } = validate(formData);
     if (!isValid) {
@@ -292,53 +392,56 @@ const TeacherForm = ({ onSuccess, onCancel }) => {
     setIsLoading(true);
 
     try {
-      // Build the payload that will be sent to POST /api/teachers (Story 8)
       const payload = {
         name:        formData.name.trim(),
         email:       formData.email.trim().toLowerCase(),
         department:  formData.department,
         designation: formData.designation,
         phone:       formData.phone.trim(),
-        // NOTE: logging password is acceptable at stub stage only.
-        // Remove password from this log before Story 8 integration.
         password:    formData.password,
       };
 
-      // Simulate network latency (remove in Story 8)
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const teacher = await registerTeacher(payload, token);
 
-      // TODO (Story 8): replace the block above with:
-      // const response = await axios.post(
-      //   'http://localhost:5000/api/teachers',
-      //   payload,
-      //   { headers: { Authorization: `Bearer ${token}` } }
-      // );
-      // if (!response.data?.success) throw new Error(response.data?.message);
-
-      console.log('[TeacherForm STUB] Submitted payload:', payload);
-
-      setToast({
-        type: 'success',
-        message: `Teacher "${payload.name}" registered successfully! (stub — no data saved yet)`,
-      });
-
+      // Store confirmed data — switches to the CredentialCard view
+      setConfirmed({ teacher, tempPassword: formData.password });
       onSuccess?.();
-      setFormData(buildInitialState());
-      setErrors({});
     } catch (err) {
-      setToast({
-        type: 'error',
-        message:
-          err?.response?.data?.message ||
-          err?.message ||
-          'Something went wrong. Please try again.',
-      });
+      const responseData = err?.response?.data;
+
+      // Field-level errors from the server (validation / duplicate email)
+      if (responseData?.errors && typeof responseData.errors === 'object') {
+        setErrors((prev) => ({ ...prev, ...responseData.errors }));
+      }
+
+      // Banner message for anything not tied to a single field
+      const bannerMsg =
+        responseData?.message ||
+        err?.message ||
+        'Something went wrong. Please try again.';
+
+      // Only show the banner when there are no field-level errors to surface
+      if (!responseData?.errors) {
+        setErrorBanner(bannerMsg);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  // ── Credential card view ──────────────────────────────────────────────────
+
+  if (confirmed) {
+    return (
+      <CredentialCard
+        teacher={confirmed.teacher}
+        tempPassword={confirmed.tempPassword}
+        onRegisterAnother={handleReset}
+      />
+    );
+  }
+
+  // ── Form view ─────────────────────────────────────────────────────────────
 
   return (
     <form
@@ -348,11 +451,11 @@ const TeacherForm = ({ onSuccess, onCancel }) => {
       className="space-y-8"
       aria-label="Add Teacher Form"
     >
-      {/* Toast / Banner */}
+      {/* Error banner */}
       <Toast
-        type={toast.type}
-        message={toast.message}
-        onDismiss={() => setToast({ type: '', message: '' })}
+        type="error"
+        message={errorBanner}
+        onDismiss={() => setErrorBanner('')}
       />
 
       {/* ── Section: Personal Information ─────────────────────────────── */}
@@ -467,7 +570,6 @@ const TeacherForm = ({ onSuccess, onCancel }) => {
 
       {/* ── Actions ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2 border-t border-gray-100">
-        {/* Cancel / Reset */}
         <button
           id="teacher-form-reset-btn"
           type="button"
@@ -479,7 +581,6 @@ const TeacherForm = ({ onSuccess, onCancel }) => {
           {onCancel ? 'Cancel' : 'Reset Form'}
         </button>
 
-        {/* Submit */}
         <button
           id="teacher-form-submit-btn"
           type="submit"

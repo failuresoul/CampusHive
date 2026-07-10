@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 /**
- * User model — extended in Story 6 to include student profile fields.
+ * User model — extended in Story 6 (student fields) and Story 8 (teacher fields).
  *
  * Indexes added for columns used in GET /api/students filtering / sorting:
  *   - department, batch, status  → filter dropdowns
@@ -67,6 +67,19 @@ const User = sequelize.define('User', {
     validate: {
       isIn: [['active', 'inactive']],
     },
+  },
+  // ── Teacher profile fields (null for admin / student rows) ──────────────────
+  designation: {
+    // e.g. 'Lecturer' | 'Assistant Professor' | 'Associate Professor' | 'Professor'
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  mustChangePassword: {
+    // Set to true when an admin creates an account so the user is prompted
+    // to change their password on first login (future story).
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    defaultValue: true,
   },
 }, {
   timestamps: true,
