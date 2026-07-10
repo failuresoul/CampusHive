@@ -147,17 +147,6 @@ const RegisterTeacherPage = () => {
             </p>
           </div>
 
-          {/* Stub notice */}
-          <div className="mb-6 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5">
-            <span className="text-amber-500 mt-0.5" aria-hidden="true">⚠️</span>
-            <p className="text-xs text-amber-700">
-              <strong>Stub mode (Story 7):</strong> Submission logs form data to the
-              console and simulates a loading state.{' '}
-              {/* TODO (Story 8): connect to POST /api/teachers */}
-              Backend integration is pending Story 8.
-            </p>
-          </div>
-
           <TeacherForm onSuccess={handleSuccess} onCancel={handleCancel} />
         </div>
       </main>
