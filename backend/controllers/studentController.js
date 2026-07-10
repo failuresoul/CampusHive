@@ -1,8 +1,112 @@
 const RollNumberCounter = require('../models/RollNumberCounter');
 const User = require('../models/User');
 const sequelize = require('../config/database');
-const { Transaction, Op } = require('sequelize');
+const { Transaction, Op, fn, col } = require('sequelize');
 const bcrypt = require('bcrypt');
+
+// ── Allowed values (whitelist to prevent SQL injection via query params) ───────
+
+const ALLOWED_SORT_FIELDS = {
+  name:       'name',
+  rollNumber: 'rollNumber',
+  batch:      'batch',
+};
+const ALLOWED_SORT_ORDERS = ['asc', 'desc'];
+const MAX_PAGE_SIZE = 100;
+
+/**
+ * GET /api/students
+ *
+ * Query params:
+ *   search     – partial match on name / email / rollNumber (case-insensitive)
+ *   department – exact match
+ *   batch      – exact match
+ *   status     – 'active' | 'inactive'
+ *   page       – 1-indexed, default 1
+ *   pageSize   – default 25, max 100
+ *   sortBy     – 'name' | 'rollNumber' | 'batch', default 'name'
+ *   sortOrder  – 'asc' | 'desc', default 'asc'
+ *
+ * Response:
+ *   { success, data: { students, pagination: { page, pageSize, totalItems, totalPages } } }
+ */
+const getStudents = async (req, res) => {
+  try {
+    const {
+      search     = '',
+      department = '',
+      batch      = '',
+      status     = '',
+      page       = '1',
+      pageSize   = '25',
+      sortBy     = 'name',
+      sortOrder  = 'asc',
+    } = req.query;
+
+    // ── Sanitise & validate ──────────────────────────────────────────────────
+
+    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const pageSz   = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(pageSize, 10) || 25));
+    const offset   = (pageNum - 1) * pageSz;
+
+    const safeSort  = ALLOWED_SORT_FIELDS[sortBy]  || 'name';
+    const safeOrder = ALLOWED_SORT_ORDERS.includes(sortOrder.toLowerCase())
+      ? sortOrder.toLowerCase()
+      : 'asc';
+
+    // ── Build WHERE clause ───────────────────────────────────────────────────
+
+    const where = { role: 'student' };
+
+    if (search.trim()) {
+      const q = `%${search.trim()}%`;
+      where[Op.or] = [
+        { name:       { [Op.like]: q } },
+        { email:      { [Op.like]: q } },
+        { rollNumber: { [Op.like]: q } },
+      ];
+    }
+
+    if (department) where.department = department;
+    if (batch)      where.batch      = batch;
+    if (status)     where.status     = status;
+
+    // ── Query DB ─────────────────────────────────────────────────────────────
+
+    const { count, rows } = await User.findAndCountAll({
+      where,
+      attributes: [
+        'id', 'name', 'email', 'rollNumber',
+        'department', 'batch', 'phone', 'status',
+        'createdAt',
+      ],
+      order:  [[safeSort, safeOrder.toUpperCase()]],
+      limit:  pageSz,
+      offset,
+    });
+
+    // ── Shape response ───────────────────────────────────────────────────────
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        students: rows,
+        pagination: {
+          page:       pageNum,
+          pageSize:   pageSz,
+          totalItems: count,
+          totalPages: Math.max(1, Math.ceil(count / pageSz)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('getStudents error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch students.',
+    });
+  }
+};
 
 // Simple FIFO Mutex to serialize roll number generation requests at the application level.
 // This prevents concurrent database locks (like SQLITE_BUSY in SQLite) and ensures absolute race safety.
@@ -222,14 +326,15 @@ const bulkImport = async (req, res) => {
           const rollNumber = await generateRollNumber(row.department, row.batch, t);
           
           await User.create({
-            name: row.name.trim(),
-            email: row.email,
+            name:         row.name.trim(),
+            email:        row.email,
             passwordHash: defaultPasswordHash,
-            role: 'student',
-            // NOTE: DOB, Phone, RollNumber, Dept, Batch would normally go to a Student profile table or extended User table.
-            // As per Story 1+2 payload shape, if those fields are in User model we insert them, 
-            // but our User model only has id, name, email, passwordHash, role.
-            // We'll trust the architecture will expand the model later. For now, we simulate success.
+            role:         'student',
+            rollNumber,
+            department:   row.department,
+            batch:        row.batch,
+            phone:        row.phone ? row.phone.trim() : null,
+            status:       'active',
           }, { transaction: t });
 
           imported.push({ email: row.email, rollNumber });
@@ -259,6 +364,7 @@ const bulkImport = async (req, res) => {
 };
 
 module.exports = {
+  getStudents,
   generateRollNumber,
   previewRollNumber,
   bulkImport,

@@ -4,6 +4,15 @@ const studentController = require('../controllers/studentController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
+// GET /api/students
+// Paginated, filterable, sortable student list (admin only)
+router.get(
+  '/',
+  authMiddleware,
+  roleMiddleware(['admin']),
+  studentController.getStudents
+);
+
 // POST /api/students/preview-roll-number
 // Preview roll number for a given department and batch
 router.post(
@@ -23,3 +32,4 @@ router.post(
 );
 
 module.exports = router;
+

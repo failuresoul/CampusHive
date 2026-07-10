@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ShieldCheck,
@@ -9,65 +9,53 @@ import {
   Upload,
   ChevronRight,
   GraduationCap,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 import StudentTable from '../../components/admin/StudentTable';
 import StudentFilters from '../../components/admin/StudentFilters';
 import Pagination from '../../components/shared/Pagination';
+import { getStudents } from '../../services/studentService';
 
 import {
-  MOCK_STUDENTS,
   DEPARTMENT_OPTIONS,
   BATCH_OPTIONS,
   STATUS_OPTIONS,
   PAGE_SIZE_OPTIONS,
 } from '../../mocks/students.mock';
+// ↑ Only filter/option arrays are kept from the mock file.
+// Mock student data is no longer used — the real API drives this page.
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DEFAULT_SORT_KEY = 'name';
-const DEFAULT_SORT_DIR = 'asc';
-const LOADING_DELAY_MS = 600; // simulates async fetch for skeleton demo
+const DEFAULT_SORT_KEY  = 'name';
+const DEFAULT_SORT_DIR  = 'asc';
+const SEARCH_DEBOUNCE_MS = 300; // avoids firing a request on every keystroke
 
-// ─── Client-side filter / sort / paginate helpers ─────────────────────────────
+// ─── Error Banner ──────────────────────────────────────────────────────────────
 
-/**
- * applyFilters
- * Filters the full student list against search text + dropdown filters.
- */
-function applyFilters(students, { search, department, batch, status }) {
-  const q = search.trim().toLowerCase();
-  return students.filter((s) => {
-    if (
-      q &&
-      !s.name.toLowerCase().includes(q) &&
-      !s.email.toLowerCase().includes(q) &&
-      !s.rollNumber.toLowerCase().includes(q)
-    )
-      return false;
-    if (department && s.department !== department) return false;
-    if (batch && s.batch !== batch) return false;
-    if (status && s.status !== status) return false;
-    return true;
-  });
-}
+const ErrorBanner = ({ message, onRetry }) => (
+  <div className="flex items-start gap-3 p-4 rounded-xl border bg-red-50 border-red-200 text-red-800 text-sm">
+    <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+    <div className="flex-1">
+      <p className="font-semibold">Failed to load students</p>
+      <p className="text-xs text-red-600 mt-0.5">{message}</p>
+    </div>
+    {onRetry && (
+      <button
+        onClick={onRetry}
+        className="flex items-center gap-1.5 text-xs font-medium text-red-700 hover:text-red-900 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition-colors"
+      >
+        <RefreshCw className="h-3.5 w-3.5" />
+        Retry
+      </button>
+    )}
+  </div>
+);
 
-/**
- * applySort
- * Sorts an array of students by a key in a given direction.
- */
-function applySort(students, key, dir) {
-  return [...students].sort((a, b) => {
-    const aVal = (a[key] ?? '').toString().toLowerCase();
-    const bVal = (b[key] ?? '').toString().toLowerCase();
-    if (aVal < bVal) return dir === 'asc' ? -1 : 1;
-    if (aVal > bVal) return dir === 'asc' ? 1 : -1;
-    return 0;
-  });
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Page ──────────────────────────────────────────────────────────────────────
 
 /**
  * StudentListPage
@@ -75,22 +63,21 @@ function applySort(students, key, dir) {
  * Route: /admin/students
  * Protected by ProtectedRoute (allowedRoles=['admin']) in App.jsx.
  *
- * Story 5 — UI only.  Search, filter, sort, and pagination are handled
- * fully client-side against MOCK_STUDENTS.
+ * Story 6: All filtering, sorting, and pagination is handled server-side via
+ *   GET /api/students?search=&department=&batch=&status=&page=&pageSize=&sortBy=&sortOrder=
  *
- * TODO (Story 6): Replace mock data fetch with a real API call:
- *   GET /api/students?search=&department=&batch=&status=&page=&sort=&sortDir=
- * Remove the MOCK_STUDENTS import and the applyFilters / applySort helpers
- * once the API handles them server-side.
+ * The search input is debounced (300 ms) to avoid hammering the API on every
+ * keystroke. All other controls (dropdowns, sort headers, page buttons) trigger
+ * an immediate request.
  */
 const StudentListPage = () => {
-  const { user, logoutContext } = useAuth();
+  const { user, token, logoutContext } = useAuth();
   const navigate = useNavigate();
 
-  // ── UI state ──────────────────────────────────────────────────────────────
+  // ── Filter / sort / pagination state ──────────────────────────────────────
 
-  const [isLoading, setIsLoading]     = useState(true);
   const [search, setSearch]           = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [department, setDepartment]   = useState('');
   const [batch, setBatch]             = useState('');
   const [status, setStatus]           = useState('');
@@ -99,42 +86,87 @@ const StudentListPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize]       = useState(PAGE_SIZE_OPTIONS[0]);
 
-  // ── Simulate initial data loading (skeleton) ──────────────────────────────
+  // ── API response state ────────────────────────────────────────────────────
+
+  const [students, setStudents]       = useState([]);
+  const [pagination, setPagination]   = useState({
+    page: 1, pageSize: PAGE_SIZE_OPTIONS[0], totalItems: 0, totalPages: 1,
+  });
+  const [isLoading, setIsLoading]     = useState(true);
+  const [error, setError]             = useState(null);
+
+  // ── Debounce the search input ─────────────────────────────────────────────
+
+  const debounceTimer = useRef(null);
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), LOADING_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, []);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(search);
+      setCurrentPage(1); // reset to page 1 on new search
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(debounceTimer.current);
+  }, [search]);
 
-  // ── Derived data ──────────────────────────────────────────────────────────
+  // ── Fetch from API whenever any query param changes ───────────────────────
 
-  const filteredAndSorted = useMemo(() => {
-    const filtered = applyFilters(MOCK_STUDENTS, { search, department, batch, status });
-    return applySort(filtered, sortKey, sortDir);
-  }, [search, department, batch, status, sortKey, sortDir]);
+  const fetchStudents = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await getStudents(
+        {
+          search:    debouncedSearch,
+          department,
+          batch,
+          status,
+          page:      currentPage,
+          pageSize,
+          sortBy:    sortKey,
+          sortOrder: sortDir,
+        },
+        token
+      );
+      setStudents(result.students);
+      setPagination(result.pagination);
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'An unexpected error occurred.';
+      setError(msg);
+      setStudents([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [debouncedSearch, department, batch, status, currentPage, pageSize, sortKey, sortDir, token]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / pageSize));
-
-  const currentPageStudents = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredAndSorted.slice(start, start + pageSize);
-  }, [filteredAndSorted, currentPage, pageSize]);
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleFilterChange = useCallback((patch) => {
-    if ('search' in patch)     setSearch(patch.search);
+    // Search is handled separately via debounce
+    if ('search' in patch) {
+      setSearch(patch.search);
+      // debouncedSearch + currentPage reset happen in the debounce useEffect
+      return;
+    }
     if ('department' in patch) setDepartment(patch.department);
     if ('batch' in patch)      setBatch(patch.batch);
     if ('status' in patch)     setStatus(patch.status);
-    setCurrentPage(1); // reset to first page on any filter change
+    setCurrentPage(1);
   }, []);
 
   const handleResetFilters = useCallback(() => {
     setSearch('');
+    setDebouncedSearch('');
     setDepartment('');
     setBatch('');
     setStatus('');
     setCurrentPage(1);
+    clearTimeout(debounceTimer.current);
   }, []);
 
   const handleSort = useCallback(
@@ -288,32 +320,38 @@ const StudentListPage = () => {
             statusOptions={STATUS_OPTIONS}
             onChange={handleFilterChange}
             onReset={handleResetFilters}
-            totalFiltered={filteredAndSorted.length}
-            totalAll={MOCK_STUDENTS.length}
+            totalFiltered={pagination.totalItems}
+            totalAll={pagination.totalItems}
           />
         </div>
 
+        {/* Error state */}
+        {error && (
+          <div className="mb-4">
+            <ErrorBanner message={error} onRetry={fetchStudents} />
+          </div>
+        )}
+
         {/* Results summary */}
-        {!isLoading && (
+        {!isLoading && !error && (
           <p className="mb-3 text-xs text-gray-400 px-1">
             {hasActiveFilters ? (
               <>
-                <span className="font-semibold text-gray-600">{filteredAndSorted.length}</span>{' '}
-                of {MOCK_STUDENTS.length} students match your filters
+                <span className="font-semibold text-gray-600">{pagination.totalItems}</span>{' '}
+                student{pagination.totalItems !== 1 ? 's' : ''} match your filters
               </>
             ) : (
               <>
-                <span className="font-semibold text-gray-600">{MOCK_STUDENTS.length}</span>{' '}
-                students total
+                <span className="font-semibold text-gray-600">{pagination.totalItems}</span>{' '}
+                student{pagination.totalItems !== 1 ? 's' : ''} total
               </>
             )}
-            {/* TODO (Story 6): replace with server-side count from API */}
           </p>
         )}
 
         {/* ── Table ─────────────────────────────────────────────────────── */}
         <StudentTable
-          students={currentPageStudents}
+          students={students}
           isLoading={isLoading}
           sortKey={sortKey}
           sortDir={sortDir}
@@ -322,13 +360,13 @@ const StudentListPage = () => {
         />
 
         {/* ── Pagination ────────────────────────────────────────────────── */}
-        {!isLoading && filteredAndSorted.length > 0 && (
+        {!isLoading && !error && pagination.totalItems > 0 && (
           <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={pageSize}
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
             pageSizeOptions={PAGE_SIZE_OPTIONS}
-            totalItems={filteredAndSorted.length}
+            totalItems={pagination.totalItems}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
           />
