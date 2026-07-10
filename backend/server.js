@@ -17,6 +17,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 
 // Database Sync and Server Start
+// New columns are added via `node migrate-student-fields.js` (run once).
+// alter: true is avoided here because it breaks on SQLite tables with
+// composite primary keys (RollNumberCounter).
 sequelize.sync()
   .then(() => {
     console.log('Database synced successfully');
