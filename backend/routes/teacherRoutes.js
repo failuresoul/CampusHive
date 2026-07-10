@@ -1,8 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { registerTeacher } = require('../controllers/teacherController');
+const { registerTeacher, getTeachers } = require('../controllers/teacherController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+
+/**
+ * GET /api/teachers
+ *
+ * Paginated, searchable, filterable teacher list (admin only).
+ * Query params: search, department, page, pageSize
+ */
+router.get(
+  '/',
+  authMiddleware,
+  roleMiddleware(['admin']),
+  getTeachers
+);
 
 /**
  * POST /api/teachers

@@ -2,6 +2,10 @@ const bcrypt = require('bcrypt');
 const { Op } = require('sequelize');
 const User = require('../models/User');
 
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+const MAX_PAGE_SIZE = 100;
+
 // ── Allowed values (whitelist) ─────────────────────────────────────────────────
 
 const ALLOWED_DEPARTMENTS  = ['CSE', 'EEE', 'ME', 'CE', 'BBA', 'ENG'];
@@ -173,4 +177,85 @@ const registerTeacher = async (req, res) => {
   }
 };
 
-module.exports = { registerTeacher };
+/**
+ * GET /api/teachers
+ *
+ * Returns a paginated, searchable, filterable list of teacher accounts.
+ * Protected by authMiddleware + roleMiddleware(['admin']).
+ *
+ * Query params:
+ *   search     – partial match on name / email (case-insensitive)
+ *   department – exact match
+ *   page       – 1-indexed, default 1
+ *   pageSize   – default 25, max 100
+ *
+ * Response:
+ *   { success, data: { teachers, pagination: { page, pageSize, totalItems, totalPages } } }
+ */
+const getTeachers = async (req, res) => {
+  try {
+    const {
+      search     = '',
+      department = '',
+      page       = '1',
+      pageSize   = '25',
+    } = req.query;
+
+    // ── Sanitise & validate ──────────────────────────────────────────────────
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageSz  = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(pageSize, 10) || 25));
+    const offset  = (pageNum - 1) * pageSz;
+
+    // ── Build WHERE clause ───────────────────────────────────────────────────
+
+    const where = { role: 'teacher' };
+
+    if (search.trim()) {
+      const q = `%${search.trim()}%`;
+      where[Op.or] = [
+        { name:  { [Op.like]: q } },
+        { email: { [Op.like]: q } },
+      ];
+    }
+
+    if (department) where.department = department;
+
+    // ── Query DB ─────────────────────────────────────────────────────────────
+
+    const { count, rows } = await User.findAndCountAll({
+      where,
+      attributes: [
+        'id', 'name', 'email',
+        'department', 'designation', 'phone', 'status',
+        'createdAt',
+      ],
+      order:  [['name', 'ASC']],
+      limit:  pageSz,
+      offset,
+    });
+
+    // ── Shape response ───────────────────────────────────────────────────────
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        teachers: rows,
+        pagination: {
+          page:       pageNum,
+          pageSize:   pageSz,
+          totalItems: count,
+          totalPages: Math.max(1, Math.ceil(count / pageSz)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('getTeachers error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch teachers.',
+    });
+  }
+};
+
+module.exports = { registerTeacher, getTeachers };

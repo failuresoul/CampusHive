@@ -13,9 +13,11 @@ import AddStudentPage from './pages/admin/AddStudentPage';
 import BulkImportPage from './pages/admin/BulkImportPage';
 import StudentListPage from './pages/admin/StudentListPage';
 import RegisterTeacherPage from './pages/admin/RegisterTeacherPage';
+import TeacherListPage from './pages/admin/TeacherListPage';
 
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
+
 
 /**
  * PublicRoute
@@ -109,6 +111,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <RegisterTeacherPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/teachers"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <TeacherListPage />
                 </ProtectedRoute>
               }
             />
