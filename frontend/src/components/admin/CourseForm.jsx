@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Loader2, RotateCcw, BookOpen, CheckCircle2, AlertCircle } from 'lucide-react';
 import InputField from '../auth/InputField';
 import SelectField from '../shared/SelectField';
+import { useAuth } from '../../context/AuthContext';
+import { createCourse } from '../../services/courseService';
 
 // ─── Static Department Options ────────────────────────────────────────────────
 const DEPARTMENT_OPTIONS = [
@@ -97,6 +99,7 @@ function Toast({ type, message, onDismiss }) {
 
 // ─── Main CourseForm ──────────────────────────────────────────────────────────
 const CourseForm = ({ onSuccess, onCancel }) => {
+  const { token } = useAuth();
   const [formData, setFormData] = useState(INITIAL_STATE);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -118,7 +121,7 @@ const CourseForm = ({ onSuccess, onCancel }) => {
     setToast({ type: '', message: '' });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setToast({ type: '', message: '' });
 
@@ -130,27 +133,35 @@ const CourseForm = ({ onSuccess, onCancel }) => {
 
     setIsLoading(true);
 
-    // TODO: connect to POST /api/courses in Story 11
-    console.log('Form submitted successfully. Payload:', {
-      code: formData.code.trim().toUpperCase(),
-      title: formData.title.trim(),
-      department: formData.department,
-      creditHours: Number(formData.creditHours),
-      applicability: formData.applicability.trim(),
-      description: formData.description.trim(),
-    });
+    try {
+      const response = await createCourse({
+        code: formData.code.trim().toUpperCase(),
+        title: formData.title.trim(),
+        department: formData.department,
+        creditHours: Number(formData.creditHours),
+        applicability: formData.applicability.trim(),
+        description: formData.description.trim(),
+      }, token);
 
-    // Simulate backend response delay
-    setTimeout(() => {
       setIsLoading(false);
       setToast({
         type: 'success',
-        message: 'Course created successfully (Simulated)!',
+        message: 'Course created successfully!',
       });
       setFormData(INITIAL_STATE);
       setErrors({});
-      onSuccess?.();
-    }, 1500);
+      onSuccess?.(response.data);
+    } catch (err) {
+      setIsLoading(false);
+      const serverMessage = err.response?.data?.message || 'Failed to create course. Please try again.';
+      setToast({
+        type: 'error',
+        message: serverMessage,
+      });
+      if (err.response?.data?.errors) {
+        setErrors(err.response.data.errors);
+      }
+    }
   };
 
   return (

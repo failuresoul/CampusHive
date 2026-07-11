@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ShieldCheck,
@@ -7,6 +7,7 @@ import {
   LogOut,
   Bell,
   Plus,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import CourseForm from '../../components/admin/CourseForm';
@@ -26,17 +27,26 @@ const CreateCoursePage = () => {
   const { user, logoutContext } = useAuth();
   const navigate = useNavigate();
 
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [createdCourse, setCreatedCourse] = useState(null);
+
   const handleLogout = () => {
     logoutContext();
     navigate('/login');
   };
 
-  const handleSuccess = () => {
-    // Optionally redirect back or perform action on success
+  const handleSuccess = (course) => {
+    setCreatedCourse(course);
+    setIsSuccess(true);
   };
 
   const handleCancel = () => {
     navigate('/admin/dashboard');
+  };
+
+  const handleCreateAnother = () => {
+    setCreatedCourse(null);
+    setIsSuccess(false);
   };
 
   return (
@@ -122,18 +132,77 @@ const CreateCoursePage = () => {
           </div>
         </div>
 
-        {/* Form Card */}
+        {/* Form Card or Success Confirmation */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 animate-slide-up">
-          {/* Greeting strip */}
-          <div className="mb-6 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 flex items-center gap-3">
-            <span className="text-lg" aria-hidden="true">👤</span>
-            <p className="text-sm text-indigo-700">
-              Logged in as{' '}
-              <span className="font-semibold">{user?.name ?? 'Administrator'}</span>
-            </p>
-          </div>
+          {isSuccess && createdCourse ? (
+            <div className="text-center space-y-6 py-4">
+              <div className="flex justify-center">
+                <div className="h-16 w-16 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+                </div>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Course Created Successfully!</h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  The course has been successfully persisted in the database.
+                </p>
+              </div>
 
-          <CourseForm onSuccess={handleSuccess} onCancel={handleCancel} />
+              {/* Course Detail Box */}
+              <div className="bg-gray-50 rounded-xl border border-gray-250 p-5 max-w-md mx-auto text-left space-y-3">
+                <div>
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Course Code</span>
+                  <span className="text-base font-bold text-indigo-700">{createdCourse.code}</span>
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Course Title</span>
+                  <span className="text-base font-semibold text-gray-800">{createdCourse.title}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Department</span>
+                    <span className="text-base font-semibold text-gray-800">{createdCourse.department}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Credit Hours</span>
+                    <span className="text-base font-semibold text-gray-800">{createdCourse.creditHours}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+                <button
+                  type="button"
+                  id="create-another-course-btn"
+                  onClick={handleCreateAnother}
+                  className="px-5 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors cursor-pointer"
+                >
+                  Create Another Course
+                </button>
+                <Link
+                  to="/admin/courses"
+                  id="view-course-list-btn"
+                  className="inline-flex justify-center items-center px-5 py-2.5 bg-indigo-600 rounded-xl text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+                >
+                  View Course List
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Greeting strip */}
+              <div className="mb-6 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 flex items-center gap-3">
+                <span className="text-lg" aria-hidden="true">👤</span>
+                <p className="text-sm text-indigo-700">
+                  Logged in as{' '}
+                  <span className="font-semibold">{user?.name ?? 'Administrator'}</span>
+                </p>
+              </div>
+
+              <CourseForm onSuccess={handleSuccess} onCancel={handleCancel} />
+            </>
+          )}
         </div>
       </main>
     </div>

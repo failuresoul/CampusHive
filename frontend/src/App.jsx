@@ -15,6 +15,7 @@ import StudentListPage from './pages/admin/StudentListPage';
 import RegisterTeacherPage from './pages/admin/RegisterTeacherPage';
 import TeacherListPage from './pages/admin/TeacherListPage';
 import CreateCoursePage from './pages/admin/CreateCoursePage';
+import CourseListPage from './pages/admin/CourseListPage';
 
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -128,6 +129,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <CreateCoursePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/courses"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <CourseListPage />
                 </ProtectedRoute>
               }
             />

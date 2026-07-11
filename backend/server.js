@@ -5,6 +5,8 @@ const sequelize = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
+const courseRoutes = require('./routes/courseRoutes');
+require('./models/Course'); // Force Course model to be loaded for sync
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,6 +19,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
+app.use('/api/courses', courseRoutes);
 
 // Database Sync and Server Start
 // New columns are added via `node migrate-student-fields.js` (run once).
