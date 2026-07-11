@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const sequelize = require('./config/database');
 const User = require('./models/User');
 const RollNumberCounter = require('./models/RollNumberCounter');
+const Course = require('./models/Course');
 
 const seed = async () => {
   try {
