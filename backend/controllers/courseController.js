@@ -1,4 +1,4 @@
-const Course = require('../models/Course');
+const { Course, User, CourseTeacher } = require('../models/associations');
 const { Op } = require('sequelize');
 
 /**
@@ -99,6 +99,193 @@ const createCourse = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/courses
+ * List all academic courses, supporting optional query searches.
+ */
+const getCourses = async (req, res) => {
+  try {
+    const { search } = req.query;
+    let whereClause = {};
+
+    if (search) {
+      const cleanSearch = search.trim();
+      whereClause = {
+        [Op.or]: [
+          { code: { [Op.like]: `%${cleanSearch}%` } },
+          { title: { [Op.like]: `%${cleanSearch}%` } },
+          { department: { [Op.like]: `%${cleanSearch}%` } },
+        ],
+      };
+    }
+
+    const courses = await Course.findAll({
+      where: whereClause,
+      order: [['code', 'ASC']],
+    });
+
+    return res.json({
+      success: true,
+      data: courses,
+    });
+  } catch (error) {
+    console.error('Error in getCourses controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching courses.',
+    });
+  }
+};
+
+/**
+ * GET /api/courses/:courseId/teachers
+ * List all teachers currently assigned to the specified course.
+ */
+const getCourseTeachers = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found.',
+      });
+    }
+
+    const teachers = await course.getTeachers({
+      attributes: ['id', 'name', 'email', 'department', 'designation', 'phone'],
+      joinTableAttributes: [], // Exclude join table details from nested list
+    });
+
+    return res.json({
+      success: true,
+      data: teachers,
+    });
+  } catch (error) {
+    console.error('Error in getCourseTeachers controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching course teachers.',
+    });
+  }
+};
+
+/**
+ * POST /api/courses/:courseId/teachers
+ * Assign a teacher to a course (admin only).
+ */
+const assignTeacher = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { teacherId } = req.body;
+
+    if (!teacherId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Teacher ID is required in request body.',
+      });
+    }
+
+    // 1. Verify Course exists
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found.',
+      });
+    }
+
+    // 2. Verify Teacher exists and is a teacher role
+    const teacher = await User.findOne({
+      where: {
+        id: teacherId,
+        role: 'teacher',
+      },
+    });
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        message: 'Teacher not found or user is not a teacher.',
+      });
+    }
+
+    // 3. Prevent duplicate assignment
+    const existingAssignment = await CourseTeacher.findOne({
+      where: {
+        courseId,
+        teacherId,
+      },
+    });
+    if (existingAssignment) {
+      return res.status(409).json({
+        success: false,
+        message: 'Teacher is already assigned to this course.',
+      });
+    }
+
+    // 4. Create assignment
+    await CourseTeacher.create({
+      courseId,
+      teacherId,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Teacher assigned to course successfully.',
+    });
+  } catch (error) {
+    console.error('Error in assignTeacher controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while assigning teacher.',
+    });
+  }
+};
+
+/**
+ * DELETE /api/courses/:courseId/teachers/:teacherId
+ * Remove a teacher from a course assignment (admin only).
+ */
+const removeTeacherAssignment = async (req, res) => {
+  try {
+    const { courseId, teacherId } = req.params;
+
+    // Verify assignment exists
+    const assignment = await CourseTeacher.findOne({
+      where: {
+        courseId,
+        teacherId,
+      },
+    });
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found. Teacher is not assigned to this course.',
+      });
+    }
+
+    // Delete assignment
+    await assignment.destroy();
+
+    return res.json({
+      success: true,
+      message: 'Teacher removed from course assignment successfully.',
+    });
+  } catch (error) {
+    console.error('Error in removeTeacherAssignment controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while removing teacher assignment.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
+  getCourses,
+  getCourseTeachers,
+  assignTeacher,
+  removeTeacherAssignment,
 };
