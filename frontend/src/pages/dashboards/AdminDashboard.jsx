@@ -186,6 +186,20 @@ const AdminDashboard = () => {
                 <p className="text-xs text-gray-500">Map teachers to courses</p>
               </div>
             </Link>
+
+            <Link
+              to="/admin/courses/auto-enroll"
+              id="admin-auto-enroll-link"
+              className="group flex items-center gap-4 p-4 rounded-xl border border-dashed border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-200"
+            >
+              <div className="h-10 w-10 rounded-xl bg-indigo-100 group-hover:bg-indigo-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                <Users className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Auto-Enroll Students</p>
+                <p className="text-xs text-gray-500">Bulk enroll eligible students</p>
+              </div>
+            </Link>
           </div>
         </div>
       </main>

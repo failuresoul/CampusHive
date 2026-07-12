@@ -17,6 +17,7 @@ import TeacherListPage from './pages/admin/TeacherListPage';
 import CreateCoursePage from './pages/admin/CreateCoursePage';
 import CourseListPage from './pages/admin/CourseListPage';
 import AssignTeacherPage from './pages/admin/AssignTeacherPage';
+import AutoEnrollPage from './pages/admin/AutoEnrollPage';
 
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -146,6 +147,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AssignTeacherPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/courses/auto-enroll"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AutoEnrollPage />
                 </ProtectedRoute>
               }
             />
