@@ -83,3 +83,33 @@ export const removeTeacherAssignment = async (courseId, teacherId, token) => {
   });
   return response.data;
 };
+
+/**
+ * getEligibleStudents
+ * Fetches matching students based on course criteria.
+ */
+export const getEligibleStudents = async (courseId, token) => {
+  const response = await axios.get(`${API_URL}/${courseId}/eligible-students`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data.data;
+};
+
+/**
+ * autoEnroll
+ * Enrolls all eligible students.
+ */
+export const autoEnroll = async (courseId, token) => {
+  const response = await axios.post(
+    `${API_URL}/${courseId}/auto-enroll`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return response.data;
+};

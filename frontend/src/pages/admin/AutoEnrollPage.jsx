@@ -17,7 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import CourseSelector from '../../components/admin/CourseSelector';
 import EligibleStudentsTable from '../../components/admin/EligibleStudentsTable';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
-import { getCourses } from '../../services/courseService';
+import { getCourses, getEligibleStudents, autoEnroll } from '../../services/courseService';
 
 const AutoEnrollPage = () => {
   const { token, logoutContext } = useAuth();
@@ -38,9 +38,7 @@ const AutoEnrollPage = () => {
 
   /**
    * handlePreview
-   * Simulates fetching eligible students for a course.
-   *
-   * TODO: connect to GET /api/courses/:courseId/eligible-students and POST /api/courses/:courseId/auto-enroll in Story 15
+   * Fetches eligible and enrolled students for a course from the API.
    */
   const handlePreview = useCallback(async (courseId) => {
     setIsPreviewLoading(true);
@@ -48,28 +46,18 @@ const AutoEnrollPage = () => {
     setAlert({ type: '', message: '' });
     
     try {
-      // Simulate API call lag
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      
-      const course = courses.find((c) => c.id === courseId);
-      if (course) {
-        const dept = course.department || 'CSE';
-        const batch = course.batchSemester || '2023-2024';
-        
-        // Generate mock data: 42 eligible, 3 already enrolled
-        const mockData = generateMockStudents(dept, batch);
-        setStudents(mockData);
-      }
+      const data = await getEligibleStudents(courseId, token);
+      setStudents(data.students || []);
     } catch (err) {
       console.error('Error generating preview:', err);
       setAlert({
         type: 'error',
-        message: 'Failed to generate eligible students preview.',
+        message: err.response?.data?.message || 'Failed to generate eligible students preview.',
       });
     } finally {
       setIsPreviewLoading(false);
     }
-  }, [courses]);
+  }, [token]);
 
   // 1. Fetch courses list for selector
   useEffect(() => {
@@ -106,9 +94,7 @@ const AutoEnrollPage = () => {
 
   /**
    * handleEnroll
-   * Simulates post auto-enroll trigger.
-   *
-   * TODO: connect to POST /api/courses/:courseId/auto-enroll in Story 15
+   * Triggers the real auto-enroll API.
    */
   const handleEnroll = async () => {
     if (!selectedCourse) return;
@@ -117,10 +103,10 @@ const AutoEnrollPage = () => {
     setAlert({ type: '', message: '' });
     
     try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const response = await autoEnroll(selectedCourse.id, token);
+      const { enrolledCount, skippedCount } = response.data;
       
-      // Update statuses in the list to 'Enrolled'
+      // Update statuses in the list to 'Enrolled' for UI pulse transition
       const updatedStudents = students.map((s) => {
         if (s.status === 'Eligible') {
           return { ...s, status: 'Enrolled' };
@@ -129,24 +115,20 @@ const AutoEnrollPage = () => {
       });
       setStudents(updatedStudents);
 
-      // Save summary response
-      const eligibleCount = students.filter((s) => s.status === 'Eligible').length;
-      const skippedCount = students.filter((s) => s.status === 'Already Enrolled').length;
-      
       setEnrollSummary({
-        enrolled: eligibleCount,
+        enrolled: enrolledCount,
         skipped: skippedCount,
       });
 
       setAlert({
         type: 'success',
-        message: `Auto-enrollment complete. ${eligibleCount} students successfully enrolled.`,
+        message: `Auto-enrollment complete. ${enrolledCount} students successfully enrolled.`,
       });
     } catch (err) {
       console.error('Error during auto-enrollment:', err);
       setAlert({
         type: 'error',
-        message: 'Bulk enrollment failed. Please try again.',
+        message: err.response?.data?.message || 'Bulk enrollment failed. Please try again.',
       });
     } finally {
       setIsEnrollLoading(false);
@@ -423,34 +405,4 @@ const AutoEnrollPage = () => {
 
 export default AutoEnrollPage;
 
-/**
- * Helper to generate clean mock data representing students
- */
-const generateMockStudents = (department, batch) => {
-  const list = [];
-  const formattedBatch = batch.includes('-') ? batch.split('-')[0] : batch;
 
-  // 3 students already enrolled
-  for (let i = 1; i <= 3; i++) {
-    list.push({
-      id: `enrolled-${i}`,
-      name: `Student Enrolled ${i}`,
-      rollNumber: `${department}-${formattedBatch}-${String(i).padStart(3, '0')}`,
-      email: `enrolled${i}.${department.toLowerCase()}@campushive.edu`,
-      status: 'Already Enrolled',
-    });
-  }
-
-  // 42 eligible students to enroll
-  for (let i = 4; i <= 45; i++) {
-    list.push({
-      id: `eligible-${i}`,
-      name: `Student Eligible ${i}`,
-      rollNumber: `${department}-${formattedBatch}-${String(i).padStart(3, '0')}`,
-      email: `eligible${i}.${department.toLowerCase()}@campushive.edu`,
-      status: 'Eligible',
-    });
-  }
-
-  return list;
-};
