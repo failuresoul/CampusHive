@@ -6,7 +6,7 @@ const authRoutes = require('./routes/authRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const courseRoutes = require('./routes/courseRoutes');
-require('./models/Course'); // Force Course model to be loaded for sync
+require('./models/associations'); // Force models and associations to be loaded for sync
 
 const app = express();
 const PORT = process.env.PORT || 5000;
