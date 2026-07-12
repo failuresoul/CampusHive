@@ -47,4 +47,22 @@ router.delete(
   courseController.removeTeacherAssignment
 );
 
+// GET /api/courses/:courseId/eligible-students
+// Get eligible students for a course (admin only)
+router.get(
+  '/:courseId/eligible-students',
+  authMiddleware,
+  roleMiddleware(['admin']),
+  courseController.getEligibleStudents
+);
+
+// POST /api/courses/:courseId/auto-enroll
+// Auto enroll eligible students for a course (admin only)
+router.post(
+  '/:courseId/auto-enroll',
+  authMiddleware,
+  roleMiddleware(['admin']),
+  courseController.autoEnroll
+);
+
 module.exports = router;

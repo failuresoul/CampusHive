@@ -1,5 +1,6 @@
-const { Course, User, CourseTeacher } = require('../models/associations');
+const { Course, User, CourseTeacher, Enrollment } = require('../models/associations');
 const { Op } = require('sequelize');
+const sequelize = require('../config/database');
 
 /**
  * POST /api/courses
@@ -282,10 +283,163 @@ const removeTeacherAssignment = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/courses/:courseId/eligible-students
+ * Returns students matching that department+batch who are not yet enrolled in this course,
+ * plus a count of how many are already enrolled (for the UI's info display).
+ */
+const getEligibleStudents = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    // 1. Find course
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found.',
+      });
+    }
+
+    const { department, batchSemester } = course;
+
+    // 2. Find all students matching department and batch
+    const students = await User.findAll({
+      where: {
+        role: 'student',
+        department,
+        batch: batchSemester,
+        status: 'active',
+      },
+      attributes: ['id', 'name', 'email', 'rollNumber'],
+    });
+
+    // 3. Find already enrolled students for this course
+    const enrollments = await Enrollment.findAll({
+      where: { courseId },
+      attributes: ['studentId'],
+    });
+
+    const enrolledStudentIds = new Set(enrollments.map((e) => e.studentId));
+
+    // 4. Map students with status (Eligible vs Already Enrolled)
+    const mappedStudents = students.map((student) => {
+      const isEnrolled = enrolledStudentIds.has(student.id);
+      return {
+        id: student.id,
+        name: student.name,
+        rollNumber: student.rollNumber,
+        email: student.email,
+        status: isEnrolled ? 'Already Enrolled' : 'Eligible',
+      };
+    });
+
+    const alreadyEnrolledCount = enrolledStudentIds.size;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        students: mappedStudents,
+        alreadyEnrolledCount,
+      },
+    });
+  } catch (error) {
+    console.error('Error in getEligibleStudents controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching eligible students.',
+    });
+  }
+};
+
+/**
+ * POST /api/courses/:courseId/auto-enroll
+ * Re-computes eligible students server-side and bulk-inserts enrollment rows in a transaction.
+ */
+const autoEnroll = async (req, res) => {
+  const t = await sequelize.transaction();
+
+  try {
+    const { courseId } = req.params;
+
+    // 1. Find course
+    const course = await Course.findByPk(courseId, { transaction: t });
+    if (!course) {
+      await t.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found.',
+      });
+    }
+
+    const { department, batchSemester } = course;
+
+    // 2. Fetch all matching students
+    const students = await User.findAll({
+      where: {
+        role: 'student',
+        department,
+        batch: batchSemester,
+        status: 'active',
+      },
+      attributes: ['id'],
+      transaction: t,
+    });
+
+    // 3. Fetch existing enrollments to find who is already enrolled
+    const enrollments = await Enrollment.findAll({
+      where: { courseId },
+      attributes: ['studentId'],
+      transaction: t,
+    });
+
+    const enrolledStudentIds = new Set(enrollments.map((e) => e.studentId));
+
+    // 4. Filter eligible students (not yet enrolled)
+    const eligibleStudents = students.filter((student) => !enrolledStudentIds.has(student.id));
+
+    const enrolledCount = eligibleStudents.length;
+    const skippedCount = enrolledStudentIds.size;
+
+    // 5. Bulk insert if there are any eligible students
+    if (enrolledCount > 0) {
+      const enrollmentRows = eligibleStudents.map((student) => ({
+        studentId: student.id,
+        courseId,
+        enrolledAt: new Date(),
+      }));
+
+      await Enrollment.bulkCreate(enrollmentRows, {
+        transaction: t,
+        ignoreDuplicates: true, // Safety guard against race conditions
+      });
+    }
+
+    await t.commit();
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        enrolledCount,
+        skippedCount,
+      },
+    });
+  } catch (error) {
+    await t.rollback();
+    console.error('Error in autoEnroll controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error during auto-enrollment.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
   getCourseTeachers,
   assignTeacher,
   removeTeacherAssignment,
+  getEligibleStudents,
+  autoEnroll,
 };

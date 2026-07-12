@@ -154,7 +154,7 @@ const EligibleStudentsTable = ({ students = [] }) => {
             {students.filter(s => s.status === 'Eligible').length} Eligible
           </span>
           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-700">
-            {students.filter(s => s.status === 'Already Enrolled').length} Enrolled
+            {students.filter(s => s.status === 'Already Enrolled' || s.status === 'Enrolled').length} Enrolled
           </span>
         </div>
       </div>
