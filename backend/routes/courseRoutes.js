@@ -144,4 +144,13 @@ router.get(
   courseController.downloadLabReport
 );
 
+// GET /api/courses/:courseId/lab-reports/:reportId
+// Get details of a specific lab report
+router.get(
+  '/:courseId/lab-reports/:reportId',
+  authMiddleware,
+  roleMiddleware(['student']),
+  courseController.getLabReportDetail
+);
+
 module.exports = router;

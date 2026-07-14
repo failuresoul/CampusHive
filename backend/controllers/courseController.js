@@ -610,6 +610,43 @@ const downloadLabReport = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/courses/:courseId/lab-reports/:reportId
+ * Get details of a specific lab report for a student.
+ */
+const getLabReportDetail = async (req, res) => {
+  try {
+    const { courseId, reportId } = req.params;
+    const studentId = req.user.id;
+
+    const labReport = await LabReport.findOne({
+      where: {
+        id: reportId,
+        courseId,
+        studentId, // Ensures a student can only view their own submission
+      }
+    });
+
+    if (!labReport) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lab report not found or you do not have permission to view it.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: labReport,
+    });
+  } catch (error) {
+    console.error('Error in getLabReportDetail controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching lab report details.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
@@ -621,4 +658,5 @@ module.exports = {
   uploadLabReport,
   getMyLabReports,
   downloadLabReport,
+  getLabReportDetail,
 };

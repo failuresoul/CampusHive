@@ -2,7 +2,7 @@ import React from 'react';
 import { FileText, Download, CheckCircle, Clock } from 'lucide-react';
 import { downloadLabReport } from '../../services/labTrackService';
 import { useAuth } from '../../context/AuthContext';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 
 const SubmissionList = ({ submissions, onDownloadError }) => {
   const { token } = useAuth();
@@ -99,7 +99,13 @@ const SubmissionList = ({ submissions, onDownloadError }) => {
                     })}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">
+                <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                  <Link
+                    to={`/student/courses/${courseId}/labtrack/submissions/${sub.id}`}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                  >
+                    View Details
+                  </Link>
                   <button
                     onClick={() => handleDownload(sub.id, sub.originalFileName)}
                     className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"

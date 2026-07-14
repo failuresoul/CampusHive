@@ -21,6 +21,7 @@ import AutoEnrollPage from './pages/admin/AutoEnrollPage';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
 import LabReportUploadPage from './pages/student/LabReportUploadPage';
 import SubmissionHistoryPage from './pages/student/SubmissionHistoryPage';
+import SubmissionDetailPage from './pages/student/SubmissionDetailPage';
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -201,6 +202,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <LabReportUploadPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/courses/:courseId/labtrack/submissions/:submissionId"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <SubmissionDetailPage />
                 </ProtectedRoute>
               }
             />
