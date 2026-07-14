@@ -19,6 +19,7 @@ import CourseListPage from './pages/admin/CourseListPage';
 import AssignTeacherPage from './pages/admin/AssignTeacherPage';
 import AutoEnrollPage from './pages/admin/AutoEnrollPage';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
+import LabReportUploadPage from './pages/student/LabReportUploadPage';
 
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -192,6 +193,14 @@ function App() {
                     <p>Course ID: {window.location.pathname.split('/')[3]}</p>
                     <p>This is a placeholder for the course LabTrack view.</p>
                   </div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/courses/:courseId/labtrack/upload"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <LabReportUploadPage />
                 </ProtectedRoute>
               }
             />
