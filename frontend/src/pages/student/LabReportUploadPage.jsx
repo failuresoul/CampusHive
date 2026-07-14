@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, BookOpen, CheckCircle2 } from 'lucide-react';
 import FileUploadZone from '../../components/student/FileUploadZone';
+import { uploadLabReport } from '../../services/labTrackService';
+import { useAuth } from '../../context/AuthContext';
 
 const LabReportUploadPage = () => {
   const { courseId } = useParams();
@@ -12,6 +14,7 @@ const LabReportUploadPage = () => {
   const [description, setDescription] = useState('');
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState(null);
+  const { token } = useAuth();
   
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,7 +31,7 @@ const LabReportUploadPage = () => {
     });
   }, [courseId]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!file) {
@@ -38,35 +41,25 @@ const LabReportUploadPage = () => {
 
     setIsSubmitting(true);
     setUploadProgress(0);
+    setFileError(null);
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 10;
+    try {
+      const formData = new FormData();
+      if (title) formData.append('title', title);
+      if (description) formData.append('description', description);
+      formData.append('file', file);
+
+      await uploadLabReport(courseId, formData, token, (progress) => {
+        setUploadProgress(progress);
       });
-    }, 200);
 
-    // Simulate completion
-    setTimeout(() => {
-      clearInterval(interval);
-      setUploadProgress(100);
       setIsSubmitting(false);
       setIsSuccess(true);
-      
-      // TODO: connect to POST /api/courses/:courseId/lab-reports in Story 4 (multipart/form-data)
-      /* 
-      const formData = new FormData();
-      formData.append('title', title);
-      formData.append('description', description);
-      formData.append('file', file);
-      api.post(`/api/courses/${courseId}/lab-reports`, formData) 
-      */
-      
-    }, 2500);
+    } catch (err) {
+      setIsSubmitting(false);
+      setUploadProgress(0);
+      setFileError(err.response?.data?.message || err.message || 'Failed to upload lab report.');
+    }
   };
 
   if (!course) return null;

@@ -2,6 +2,7 @@ const Course = require('./Course');
 const User = require('./User');
 const CourseTeacher = require('./CourseTeacher');
 const Enrollment = require('./Enrollment');
+const LabReport = require('./LabReport');
 
 // Course - User (Teacher) Many-to-Many Relationship
 Course.belongsToMany(User, {
@@ -33,10 +34,18 @@ User.belongsToMany(Course, {
   otherKey: 'courseId',
 });
 
+// LabReport Relationships
+LabReport.belongsTo(User, { as: 'student', foreignKey: 'studentId' });
+User.hasMany(LabReport, { as: 'labReports', foreignKey: 'studentId' });
+
+LabReport.belongsTo(Course, { as: 'course', foreignKey: 'courseId' });
+Course.hasMany(LabReport, { as: 'labReports', foreignKey: 'courseId' });
+
 module.exports = {
   Course,
   User,
   CourseTeacher,
   Enrollment,
+  LabReport,
 };
 
