@@ -45,3 +45,12 @@ export const downloadLabReport = async (courseId, reportId, token, fileName) => 
   link.remove();
   window.URL.revokeObjectURL(url);
 };
+
+export const getSubmissionDetail = async (courseId, reportId, token) => {
+  const response = await axios.get(`${API_URL}/${courseId}/lab-reports/${reportId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
