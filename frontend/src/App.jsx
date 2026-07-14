@@ -20,7 +20,7 @@ import AssignTeacherPage from './pages/admin/AssignTeacherPage';
 import AutoEnrollPage from './pages/admin/AutoEnrollPage';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
 import LabReportUploadPage from './pages/student/LabReportUploadPage';
-
+import SubmissionHistoryPage from './pages/student/SubmissionHistoryPage';
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -186,13 +186,13 @@ function App() {
             />
             <Route
               path="/student/courses/:courseId/labtrack"
+              element={<Navigate to="history" replace />}
+            />
+            <Route
+              path="/student/courses/:courseId/labtrack/history"
               element={
                 <ProtectedRoute allowedRoles={['student']}>
-                  <div className="p-8 text-center text-gray-500">
-                    <h2 className="text-2xl font-bold mb-4">LabTrack Placeholder</h2>
-                    <p>Course ID: {window.location.pathname.split('/')[3]}</p>
-                    <p>This is a placeholder for the course LabTrack view.</p>
-                  </div>
+                  <SubmissionHistoryPage />
                 </ProtectedRoute>
               }
             />

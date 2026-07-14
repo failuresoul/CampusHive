@@ -126,4 +126,22 @@ router.post(
   courseController.uploadLabReport
 );
 
+// GET /api/courses/:courseId/lab-reports/mine
+// Get logged-in student's lab reports for a course
+router.get(
+  '/:courseId/lab-reports/mine',
+  authMiddleware,
+  roleMiddleware(['student']),
+  courseController.getMyLabReports
+);
+
+// GET /api/courses/:courseId/lab-reports/:reportId/download
+// Securely download a specific lab report
+router.get(
+  '/:courseId/lab-reports/:reportId/download',
+  authMiddleware,
+  roleMiddleware(['student']),
+  courseController.downloadLabReport
+);
+
 module.exports = router;
