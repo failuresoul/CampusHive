@@ -1,4 +1,4 @@
-const { Course, User, CourseTeacher, Enrollment } = require('../models/associations');
+const { Course, User, CourseTeacher, Enrollment, LabReport } = require('../models/associations');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -434,6 +434,68 @@ const autoEnroll = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/courses/:courseId/lab-reports
+ * Upload a lab report for a course (student only).
+ */
+const uploadLabReport = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const studentId = req.user.id;
+    const { title, description } = req.body;
+
+    // 1. Check enrollment
+    const enrollment = await Enrollment.findOne({
+      where: { courseId, studentId }
+    });
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not enrolled in this course.',
+      });
+    }
+
+    // 2. Validate file existence
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded or invalid file format.',
+      });
+    }
+
+    const { originalname, size, path: filePath } = req.file;
+
+    // 3. Create LabReport record
+    const labReport = await LabReport.create({
+      studentId,
+      courseId,
+      title: title || null,
+      description: description || null,
+      filePath,
+      originalFileName: originalname,
+      fileSize: size,
+      status: 'submitted',
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        id: labReport.id,
+        fileName: labReport.originalFileName,
+        submittedAt: labReport.submittedAt,
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in uploadLabReport controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while uploading lab report.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
@@ -442,4 +504,5 @@ module.exports = {
   removeTeacherAssignment,
   getEligibleStudents,
   autoEnroll,
+  uploadLabReport,
 };
