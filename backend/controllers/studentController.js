@@ -1,5 +1,6 @@
 const RollNumberCounter = require('../models/RollNumberCounter');
 const User = require('../models/User');
+const Course = require('../models/Course');
 const sequelize = require('../config/database');
 const { Transaction, Op, fn, col } = require('sequelize');
 const bcrypt = require('bcrypt');
@@ -363,9 +364,64 @@ const bulkImport = async (req, res) => {
   }
 };
 
+const getMyCourses = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+
+    const student = await User.findByPk(studentId, {
+      include: [{
+        model: Course,
+        as: 'enrolledCourses',
+        attributes: ['id', 'code', 'title', 'creditHours'],
+        include: [{
+          model: User,
+          as: 'teachers',
+          attributes: ['name'],
+          through: { attributes: [] } // Exclude CourseTeacher junction fields
+        }],
+        through: { attributes: [] } // Exclude Enrollment junction fields
+      }]
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    const courses = student.enrolledCourses.map(course => {
+      // Assuming a course has at least one teacher, otherwise 'Not Assigned'
+      const teacherName = course.teachers && course.teachers.length > 0 
+        ? course.teachers.map(t => t.name).join(', ') 
+        : 'Not Assigned';
+        
+      return {
+        id: course.id,
+        code: course.code,
+        title: course.title,
+        creditHours: course.creditHours,
+        teacherName
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        courses
+      }
+    });
+
+  } catch (error) {
+    console.error('getMyCourses error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch enrolled courses.',
+    });
+  }
+};
+
 module.exports = {
   getStudents,
   generateRollNumber,
   previewRollNumber,
   bulkImport,
+  getMyCourses,
 };

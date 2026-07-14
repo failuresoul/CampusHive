@@ -4,6 +4,15 @@ const studentController = require('../controllers/studentController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
+// GET /api/students/me/courses
+// Get enrolled courses for the logged-in student
+router.get(
+  '/me/courses',
+  authMiddleware,
+  roleMiddleware(['student']),
+  studentController.getMyCourses
+);
+
 // GET /api/students
 // Paginated, filterable, sortable student list (admin only)
 router.get(

@@ -2,48 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { BookMarked, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import CourseCard from '../../components/student/CourseCard';
-
-const MOCK_COURSES = [
-  {
-    id: '1',
-    code: 'CS101',
-    title: 'Introduction to Programming',
-    creditHours: 3,
-    teacherName: 'Dr. Alan Turing',
-  },
-  {
-    id: '2',
-    code: 'CS201',
-    title: 'Data Structures',
-    creditHours: 4,
-    teacherName: 'Grace Hopper',
-  },
-  {
-    id: '3',
-    code: 'PHY101',
-    title: 'General Physics I',
-    creditHours: 4,
-    teacherName: 'Albert Einstein',
-  },
-];
+import { getMyCourses } from '../../services/studentService';
+import { useAuth } from '../../context/AuthContext';
 
 const StudentCoursesPage = () => {
+  const { token } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: connect to GET /api/students/me/courses in Story 2
     const fetchCourses = async () => {
       setLoading(true);
-      // Simulate network request
-      setTimeout(() => {
-        setCourses(MOCK_COURSES); // Set to empty array to test empty state
+      try {
+        const data = await getMyCourses(token);
+        setCourses(data);
+      } catch (error) {
+        console.error('Failed to fetch courses:', error);
+      } finally {
         setLoading(false);
-      }, 1000);
+      }
     };
 
-    fetchCourses();
-  }, []);
+    if (token) {
+      fetchCourses();
+    }
+  }, [token]);
 
   return (
     <div className="min-h-screen bg-gray-50">
