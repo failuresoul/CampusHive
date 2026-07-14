@@ -18,6 +18,7 @@ import CreateCoursePage from './pages/admin/CreateCoursePage';
 import CourseListPage from './pages/admin/CourseListPage';
 import AssignTeacherPage from './pages/admin/AssignTeacherPage';
 import AutoEnrollPage from './pages/admin/AutoEnrollPage';
+import StudentCoursesPage from './pages/student/StudentCoursesPage';
 
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -171,6 +172,26 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <StudentDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/courses"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <StudentCoursesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/courses/:courseId/labtrack"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <div className="p-8 text-center text-gray-500">
+                    <h2 className="text-2xl font-bold mb-4">LabTrack Placeholder</h2>
+                    <p>Course ID: {window.location.pathname.split('/')[3]}</p>
+                    <p>This is a placeholder for the course LabTrack view.</p>
+                  </div>
                 </ProtectedRoute>
               }
             />

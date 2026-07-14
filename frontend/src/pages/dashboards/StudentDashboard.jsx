@@ -10,17 +10,37 @@ import {
   Bell,
 } from 'lucide-react';
 
-const StatCard = ({ icon: Icon, label, value, color }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-5 hover:shadow-md transition-shadow">
-    <div className={`h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-      <Icon className="h-6 w-6 text-white" />
+import { Link } from 'react-router-dom';
+
+const StatCard = ({ icon: Icon, label, value, color, to }) => {
+  const content = (
+    <>
+      <div className={`h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+        <Icon className="h-6 w-6 text-white" />
+      </div>
+      <div>
+        <p className="text-sm text-gray-500 font-medium">{label}</p>
+        <p className="text-2xl font-bold text-gray-900">{value}</p>
+      </div>
+    </>
+  );
+
+  const className = "bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-5 hover:shadow-md transition-shadow";
+
+  if (to) {
+    return (
+      <Link to={to} className={`${className} hover:border-amber-200 cursor-pointer`}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={className}>
+      {content}
     </div>
-    <div>
-      <p className="text-sm text-gray-500 font-medium">{label}</p>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-    </div>
-  </div>
-);
+  );
+};
 
 const StudentDashboard = () => {
   const { user, logoutContext } = useAuth();
@@ -76,7 +96,7 @@ const StudentDashboard = () => {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-          <StatCard icon={BookMarked} label="Enrolled Courses" value="—" color="bg-amber-500" />
+          <StatCard icon={BookMarked} label="Enrolled Courses" value="—" color="bg-amber-500" to="/student/courses" />
           <StatCard icon={Star} label="GPA" value="—" color="bg-orange-500" />
           <StatCard icon={ClipboardCheck} label="Assignments Due" value="—" color="bg-rose-500" />
           <StatCard icon={Calendar} label="Upcoming Exams" value="—" color="bg-pink-500" />
