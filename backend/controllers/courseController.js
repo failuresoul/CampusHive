@@ -1,6 +1,8 @@
 const { Course, User, CourseTeacher, Enrollment, LabReport } = require('../models/associations');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const path = require('path');
+const fs = require('fs');
 
 /**
  * POST /api/courses
@@ -496,6 +498,118 @@ const uploadLabReport = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/courses/:courseId/lab-reports/mine
+ * Get all lab reports submitted by the logged-in student for a course.
+ */
+const getMyLabReports = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const studentId = req.user.id;
+
+    // 1. Verify enrollment
+    const enrollment = await Enrollment.findOne({
+      where: { courseId, studentId }
+    });
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not enrolled in this course.',
+      });
+    }
+
+    // 2. Fetch lab reports for this student & course
+    const labReports = await LabReport.findAll({
+      where: {
+        courseId,
+        studentId,
+      },
+      order: [['submittedAt', 'DESC']],
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: labReports,
+    });
+  } catch (error) {
+    console.error('Error in getMyLabReports controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching lab reports.',
+    });
+  }
+};
+
+/**
+ * GET /api/courses/:courseId/lab-reports/:reportId/download
+ * Download a specific lab report securely.
+ */
+const downloadLabReport = async (req, res) => {
+  try {
+    const { courseId, reportId } = req.params;
+    const studentId = req.user.id;
+
+    // 1. Verify enrollment
+    const enrollment = await Enrollment.findOne({
+      where: { courseId, studentId }
+    });
+
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not enrolled in this course.',
+      });
+    }
+
+    // 2. Fetch the lab report
+    const labReport = await LabReport.findOne({
+      where: {
+        id: reportId,
+        courseId,
+        studentId, // Ensure they only download their own reports
+      }
+    });
+
+    if (!labReport) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lab report not found.',
+      });
+    }
+
+    // 3. Send file
+    const absolutePath = path.resolve(labReport.filePath);
+    
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found on server.',
+      });
+    }
+
+    res.download(absolutePath, labReport.originalFileName, (err) => {
+      if (err) {
+        console.error('Error downloading file:', err);
+        // Only send response if headers have not been sent yet
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            message: 'Error downloading file.',
+          });
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in downloadLabReport controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while downloading file.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
@@ -505,4 +619,6 @@ module.exports = {
   getEligibleStudents,
   autoEnroll,
   uploadLabReport,
+  getMyLabReports,
+  downloadLabReport,
 };
