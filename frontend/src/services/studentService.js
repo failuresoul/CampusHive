@@ -75,3 +75,19 @@ export const bulkImportStudents = async (rows, token) => {
   );
   return response.data;
 };
+
+/**
+ * getMyCourses
+ *
+ * Fetches the enrolled courses for the currently logged-in student.
+ * @param {string} token - Authorization token
+ * @returns {Promise<Array>} Array of course objects
+ */
+export const getMyCourses = async (token) => {
+  const response = await axios.get(`${API_URL}/me/courses`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data.data.courses;
+};
