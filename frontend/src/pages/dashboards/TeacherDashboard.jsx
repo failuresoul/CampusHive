@@ -7,8 +7,8 @@ import {
   Users,
   ClipboardList,
   LogOut,
-  Bell,
 } from 'lucide-react';
+import NotificationBell from '../../components/teacher/NotificationBell';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-5 hover:shadow-md transition-shadow">
@@ -46,9 +46,7 @@ const TeacherDashboard = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
             <button
               id="teacher-logout-btn"
               onClick={handleLogout}
