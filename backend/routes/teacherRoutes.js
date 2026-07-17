@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerTeacher, getTeachers } = require('../controllers/teacherController');
+const { registerTeacher, getTeachers, getTeacherSubmissions } = require('../controllers/teacherController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
@@ -34,6 +34,20 @@ router.post(
   authMiddleware,
   roleMiddleware(['admin']),
   registerTeacher
+);
+
+/**
+ * GET /api/teachers/me/submissions
+ *
+ * Returns a paginated submission queue scoped to the logged-in teacher's courses.
+ * Query params: status (submitted|graded|all), courseId, page, pageSize
+ * Protected by authMiddleware + roleMiddleware(['teacher']).
+ */
+router.get(
+  '/me/submissions',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+  getTeacherSubmissions
 );
 
 module.exports = router;

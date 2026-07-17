@@ -54,3 +54,30 @@ export const getSubmissionDetail = async (courseId, reportId, token) => {
   });
   return response.data;
 };
+
+const TEACHERS_API = 'http://localhost:5000/api/teachers';
+
+/**
+ * getTeacherSubmissions
+ *
+ * Fetches the paginated submission queue for the logged-in teacher.
+ * Scoped automatically to their assigned courses on the backend.
+ *
+ * @param {{ status?, courseId?, page?, pageSize? }} params
+ * @param {string} token – teacher JWT
+ * @returns {Promise<{ submissions, pagination, courses }>}
+ */
+export const getTeacherSubmissions = async (
+  { status = 'submitted', courseId = '', page = 1, pageSize = 25 } = {},
+  token
+) => {
+  const params = { status, page, pageSize };
+  if (courseId) params.courseId = courseId;
+
+  const response = await axios.get(`${TEACHERS_API}/me/submissions`, {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  // response.data.data = { submissions, pagination, courses }
+  return response.data.data;
+};
