@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/studentController');
+const notificationController = require('../controllers/notificationController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
@@ -38,6 +39,26 @@ router.post(
   authMiddleware,
   roleMiddleware(['admin']),
   studentController.bulkImport
+);
+
+// ── Notification Routes (Story 8) ─────────────────────────────────────────────
+
+// GET /api/students/me/notifications
+// Returns the logged-in student's notifications, newest first
+router.get(
+  '/me/notifications',
+  authMiddleware,
+  roleMiddleware(['student']),
+  notificationController.getMyNotifications
+);
+
+// PATCH /api/students/me/notifications/:id/read
+// Marks a single notification as read (403 if it belongs to another student)
+router.patch(
+  '/me/notifications/:id/read',
+  authMiddleware,
+  roleMiddleware(['student']),
+  notificationController.markNotificationRead
 );
 
 module.exports = router;
