@@ -1,79 +1,69 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import GradeForm from '../../components/teacher/GradeForm';
+import { useAuth } from '../../context/AuthContext';
+import { getTeacherSubmission, saveGrade } from '../../services/labTrackService';
 
 const GradeSubmissionPage = () => {
   const { submissionId } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuth();
 
-  // Mock state for submission details and grading
+  // State for submission details and grading
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Mock fetching submission details
-    // In a real implementation, you would fetch from /api/lab-reports/:submissionId
     const fetchSubmission = async () => {
       setLoading(true);
+      setError('');
       try {
-        // Simulate API delay
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        
-        // Mock data
-        setSubmission({
-          id: submissionId,
-          studentName: 'Alice Johnson',
-          courseCode: 'CS101',
-          courseName: 'Introduction to Computer Science',
-          title: 'Lab 3: Data Structures',
-          submittedAt: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
-          fileUrl: '#',
-          fileName: 'alice_johnson_lab3.pdf',
-          // Simulate an already graded submission if id ends with 'graded'
-          grade: submissionId.endsWith('graded') ? 85 : null,
-          feedback: submissionId.endsWith('graded') ? 'Good job, but watch out for edge cases in your arrays.' : '',
-          maxScore: 100
-        });
-      } catch (error) {
-        console.error('Failed to fetch submission:', error);
+        const response = await getTeacherSubmission(submissionId, token);
+        if (response.success) {
+          setSubmission(response.data);
+        } else {
+          setError(response.message || 'Failed to fetch submission.');
+        }
+      } catch (err) {
+        console.error('Failed to fetch submission:', err);
+        setError(err.response?.data?.message || 'Failed to fetch submission.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSubmission();
-  }, [submissionId]);
+    if (token && submissionId) {
+      fetchSubmission();
+    }
+  }, [submissionId, token]);
 
   const handleSaveGrade = async (gradeData) => {
     setIsSaving(true);
     setSaveSuccess(false);
+    setError('');
     
-    // TODO: connect to POST /api/lab-reports/:submissionId/grade in Story 11
-    console.log(`[STUB] Saving grade for submission ${submissionId}:`, gradeData);
-
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      console.log('Grade saved successfully.');
-      setSaveSuccess(true);
-      
-      // Update local state to reflect new grade
-      setSubmission(prev => ({
-        ...prev,
-        grade: gradeData.grade,
-        feedback: gradeData.feedback
-      }));
-      
-      // Navigate back after a short delay
-      setTimeout(() => {
-        navigate('/teacher/submissions');
-      }, 1500);
-
-    } catch (error) {
-      console.error('Failed to save grade:', error);
+      const response = await saveGrade(submissionId, gradeData, token);
+      if (response.success) {
+        setSaveSuccess(true);
+        setSubmission(prev => ({
+          ...prev,
+          grade: gradeData.grade,
+          feedback: gradeData.feedback
+        }));
+        
+        setTimeout(() => {
+          navigate('/teacher/submissions');
+        }, 1500);
+      } else {
+        setError(response.message || 'Failed to save grade.');
+      }
+    } catch (err) {
+      console.error('Failed to save grade:', err);
+      setError(err.response?.data?.message || 'Failed to save grade.');
     } finally {
       setIsSaving(false);
     }
@@ -83,6 +73,20 @@ const GradeSubmissionPage = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error && !submission) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button onClick={() => navigate('/teacher/submissions')} className="text-indigo-600 hover:text-indigo-800 font-medium">
+            &larr; Back to Queue
+          </button>
+        </div>
       </div>
     );
   }
@@ -120,12 +124,21 @@ const GradeSubmissionPage = () => {
             </p>
           </div>
           
-          {saveSuccess && (
-            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center shadow-sm">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              Grade saved successfully! Redirecting...
-            </div>
-          )}
+          <div className="flex flex-col gap-2 items-end">
+            {error && (
+              <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center shadow-sm">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                {error}
+              </div>
+            )}
+            
+            {saveSuccess && (
+              <div className="bg-green-50 text-green-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center shadow-sm">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                Grade saved successfully! Redirecting...
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
