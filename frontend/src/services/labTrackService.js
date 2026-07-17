@@ -81,3 +81,36 @@ export const getTeacherSubmissions = async (
   // response.data.data = { submissions, pagination, courses }
   return response.data.data;
 };
+
+/**
+ * saveGrade
+ *
+ * Grades a submission.
+ * @param {string} submissionId
+ * @param {{ grade, feedback }} data
+ * @param {string} token
+ * @returns {Promise<any>}
+ */
+export const saveGrade = async (submissionId, data, token) => {
+  const response = await axios.post(`http://localhost:5000/api/lab-reports/${submissionId}/grade`, data, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+/**
+ * getTeacherSubmission
+ *
+ * Fetches a single submission detail for the teacher.
+ */
+export const getTeacherSubmission = async (submissionId, token) => {
+  const response = await axios.get(`http://localhost:5000/api/lab-reports/${submissionId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+

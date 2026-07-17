@@ -414,5 +414,124 @@ const getTeacherSubmissions = async (req, res) => {
     });
   }
 };
+/**
+ * POST /api/lab-reports/:submissionId/grade
+ *
+ * Grades a lab report submission.
+ * Validates range (0-100).
+ * Verifies the teacher is assigned to the course.
+ */
+const gradeSubmission = async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+    const { submissionId } = req.params;
+    const { grade, feedback = '' } = req.body;
 
-module.exports = { registerTeacher, getTeachers, getTeacherSubmissions };
+    const numGrade = Number(grade);
+    if (grade === undefined || grade === null || isNaN(numGrade) || numGrade < 0 || numGrade > 100) {
+      return res.status(400).json({ success: false, message: 'Valid grade between 0 and 100 is required.' });
+    }
+
+    const labReport = await LabReport.findByPk(submissionId, {
+      include: [{ model: Course, as: 'course' }]
+    });
+
+    if (!labReport) {
+      return res.status(404).json({ success: false, message: 'Submission not found.' });
+    }
+
+    const isAssigned = await CourseTeacher.findOne({
+      where: {
+        teacherId,
+        courseId: labReport.courseId,
+      }
+    });
+
+    if (!isAssigned) {
+      return res.status(403).json({ success: false, message: 'Not authorized to grade submissions for this course.' });
+    }
+
+    const wasAlreadyGraded = labReport.status === 'graded';
+
+    labReport.grade = numGrade.toString();
+    labReport.feedback = feedback;
+    labReport.status = 'graded';
+    await labReport.save();
+
+    const notifyStudentOfGrade = require('../utils/notifyStudentOfGrade');
+    const notification = await notifyStudentOfGrade(labReport.id);
+    
+    if (wasAlreadyGraded && notification) {
+      notification.message = notification.message.replace('has been graded', 'grade has been updated');
+      await notification.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        submissionId: labReport.id,
+        grade: labReport.grade,
+        status: labReport.status,
+      }
+    });
+  } catch (error) {
+    console.error('gradeSubmission error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to save grade.' });
+  }
+};
+
+/**
+ * GET /api/lab-reports/:submissionId
+ * Fetches a single submission for a teacher.
+ */
+const getSubmissionById = async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+    const { submissionId } = req.params;
+
+    const labReport = await LabReport.findByPk(submissionId, {
+      include: [
+        { model: User, as: 'student', attributes: ['id', 'name', 'rollNumber'] },
+        { model: Course, as: 'course', attributes: ['id', 'code', 'title'] }
+      ]
+    });
+
+    if (!labReport) {
+      return res.status(404).json({ success: false, message: 'Submission not found.' });
+    }
+
+    const isAssigned = await CourseTeacher.findOne({
+      where: { teacherId, courseId: labReport.courseId }
+    });
+
+    if (!isAssigned) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view submissions for this course.' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: labReport.id,
+        studentName: labReport.student?.name ?? 'Unknown',
+        rollNumber: labReport.student?.rollNumber ?? '—',
+        courseId: labReport.courseId,
+        courseCode: labReport.course?.code ?? '—',
+        courseName: labReport.course?.title ?? '—',
+        title: labReport.title,
+        submittedAt: labReport.submittedAt,
+        status: labReport.status,
+        grade: labReport.grade,
+        feedback: labReport.feedback,
+        fileUrl: `http://localhost:5000/api/courses/${labReport.courseId}/lab-reports/${labReport.id}/download`,
+        fileName: labReport.originalFileName,
+        maxScore: 100 // Hardcoded max score
+      }
+    });
+  } catch (error) {
+    console.error('getSubmissionById error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch submission.' });
+  }
+};
+
+module.exports = { registerTeacher, getTeachers, getTeacherSubmissions, gradeSubmission, getSubmissionById };
+
