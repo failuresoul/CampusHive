@@ -7,10 +7,9 @@ import {
   ClipboardCheck,
   Calendar,
   LogOut,
-  Bell,
 } from 'lucide-react';
-
 import { Link } from 'react-router-dom';
+import StudentNotificationBell from '../../components/student/NotificationBell';
 
 const StatCard = ({ icon: Icon, label, value, color, to }) => {
   const content = (
@@ -66,9 +65,7 @@ const StudentDashboard = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-              <Bell className="h-5 w-5" />
-            </button>
+            <StudentNotificationBell />
             <button
               id="student-logout-btn"
               onClick={handleLogout}
