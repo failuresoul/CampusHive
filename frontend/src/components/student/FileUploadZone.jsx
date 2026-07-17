@@ -11,7 +11,7 @@ const FileUploadZone = ({ file, setFile, error, setError }) => {
     e.stopPropagation();
   }, []);
 
-  const validateAndSetFile = (selectedFile) => {
+  const validateAndSetFile = useCallback((selectedFile) => {
     setError(null);
     if (!selectedFile) return;
 
@@ -26,7 +26,7 @@ const FileUploadZone = ({ file, setFile, error, setError }) => {
     }
 
     setFile(selectedFile);
-  };
+  }, [setError, setFile]);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -35,7 +35,7 @@ const FileUploadZone = ({ file, setFile, error, setError }) => {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       validateAndSetFile(e.dataTransfer.files[0]);
     }
-  }, []);
+  }, [validateAndSetFile]);
 
   const handleChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, BookOpen, CheckCircle2 } from 'lucide-react';
 import FileUploadZone from '../../components/student/FileUploadZone';
 import { uploadLabReport } from '../../services/labTrackService';
@@ -7,8 +7,8 @@ import { useAuth } from '../../context/AuthContext';
 
 const LabReportUploadPage = () => {
   const { courseId } = useParams();
-  const navigate = useNavigate();
   
+
   // Form State
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
