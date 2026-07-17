@@ -22,6 +22,7 @@ import StudentCoursesPage from './pages/student/StudentCoursesPage';
 import LabReportUploadPage from './pages/student/LabReportUploadPage';
 import SubmissionHistoryPage from './pages/student/SubmissionHistoryPage';
 import SubmissionDetailPage from './pages/student/SubmissionDetailPage';
+import TeacherSubmissionQueuePage from './pages/teacher/TeacherSubmissionQueuePage';
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -166,6 +167,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['teacher']}>
                   <TeacherDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teacher/submissions"
+              element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherSubmissionQueuePage />
                 </ProtectedRoute>
               }
             />

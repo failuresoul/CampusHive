@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const { Op } = require('sequelize');
 const User = require('../models/User');
+const { LabReport, Course, CourseTeacher } = require('../models/associations');
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -258,4 +259,160 @@ const getTeachers = async (req, res) => {
   }
 };
 
-module.exports = { registerTeacher, getTeachers };
+/**
+ * GET /api/teachers/me/submissions
+ *
+ * Returns a paginated list of lab report submissions scoped to only the
+ * courses the logged-in teacher is assigned to (via CourseTeacher).
+ *
+ * Query params:
+ *   status   – 'submitted' (default) | 'graded' | 'all'
+ *   courseId – UUID; narrows to one specific course
+ *   page     – 1-indexed, default 1
+ *   pageSize – default 25, max 100
+ *
+ * Response shape per item:
+ *   id, studentName, courseCode, courseTitle, courseId,
+ *   title, submittedAt, status, grade, feedback, filePath
+ *
+ * Protected by authMiddleware + roleMiddleware(['teacher']).
+ */
+const getTeacherSubmissions = async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+
+    const {
+      status   = 'submitted',
+      courseId = '',
+      page     = '1',
+      pageSize = '25',
+    } = req.query;
+
+    // ── Sanitise & validate ──────────────────────────────────────────────────
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageSz  = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(pageSize, 10) || 25));
+    const offset  = (pageNum - 1) * pageSz;
+
+    const ALLOWED_STATUSES = ['submitted', 'graded', 'all'];
+    const safeStatus = ALLOWED_STATUSES.includes(status) ? status : 'submitted';
+
+    // ── Step 1: Resolve teacher's assigned course IDs ────────────────────────
+
+    const assignments = await CourseTeacher.findAll({
+      where: { teacherId },
+      attributes: ['courseId'],
+    });
+
+    const assignedCourseIds = assignments.map((a) => a.courseId);
+
+    if (assignedCourseIds.length === 0) {
+      // Teacher has no assigned courses → return empty result
+      return res.status(200).json({
+        success: true,
+        data: {
+          submissions: [],
+          pagination: { page: pageNum, pageSize: pageSz, totalItems: 0, totalPages: 1 },
+          courses: [],
+        },
+      });
+    }
+
+    // ── Step 2: Build WHERE clause ────────────────────────────────────────────
+
+    const where = {
+      courseId: { [Op.in]: assignedCourseIds },
+    };
+
+    // Optional: narrow to a single course (must belong to this teacher)
+    if (courseId && assignedCourseIds.includes(courseId)) {
+      where.courseId = courseId;
+    }
+
+    // Status filter
+    if (safeStatus !== 'all') {
+      where.status = safeStatus;
+    }
+
+    // ── Step 3: Default sort — oldest first for ungraded, newest first for graded/all ──
+
+    const order = safeStatus === 'submitted'
+      ? [['submittedAt', 'ASC']]   // clear the backlog oldest-first
+      : [['submittedAt', 'DESC']];
+
+    // ── Step 4: Query ────────────────────────────────────────────────────────
+
+    const { count, rows } = await LabReport.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'student',
+          attributes: ['id', 'name', 'rollNumber'],
+        },
+        {
+          model: Course,
+          as: 'course',
+          attributes: ['id', 'code', 'title'],
+        },
+      ],
+      order,
+      limit: pageSz,
+      offset,
+      // distinct is required when using include + findAndCountAll to avoid
+      // inflated counts caused by the JOIN
+      distinct: true,
+    });
+
+    // ── Step 5: Fetch teacher's course list (for filter dropdown) ─────────────
+
+    const teacherCourses = await Course.findAll({
+      where: { id: { [Op.in]: assignedCourseIds } },
+      attributes: ['id', 'code', 'title'],
+      order: [['code', 'ASC']],
+    });
+
+    // ── Step 6: Shape response ────────────────────────────────────────────────
+
+    const submissions = rows.map((lr) => ({
+      id:          lr.id,
+      studentName: lr.student?.name    ?? 'Unknown',
+      rollNumber:  lr.student?.rollNumber ?? '—',
+      studentId:   lr.studentId,
+      courseId:    lr.courseId,
+      courseCode:  lr.course?.code     ?? '—',
+      courseTitle: lr.course?.title    ?? '—',
+      title:       lr.title,
+      description: lr.description,
+      submittedAt: lr.submittedAt,
+      status:      lr.status,
+      grade:       lr.grade,
+      feedback:    lr.feedback,
+      filePath:    lr.filePath,
+      originalFileName: lr.originalFileName,
+      fileSize:    lr.fileSize,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        submissions,
+        pagination: {
+          page:       pageNum,
+          pageSize:   pageSz,
+          totalItems: count,
+          totalPages: Math.max(1, Math.ceil(count / pageSz)),
+        },
+        courses: teacherCourses,
+      },
+    });
+  } catch (error) {
+    console.error('getTeacherSubmissions error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch submissions.',
+    });
+  }
+};
+
+module.exports = { registerTeacher, getTeachers, getTeacherSubmissions };
