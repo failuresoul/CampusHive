@@ -8,6 +8,7 @@ const Quiz = require('./Quiz');
 const QuizQuestion = require('./QuizQuestion');
 const QuizOption = require('./QuizOption');
 const QuizResponse = require('./QuizResponse');
+const StudySession = require('./StudySession');
 
 // Course - User (Teacher) Many-to-Many Relationship
 Course.belongsToMany(User, {
@@ -79,6 +80,13 @@ User.hasMany(QuizResponse, { as: 'quizResponses', foreignKey: 'studentId' });
 QuizResponse.belongsTo(QuizOption, { as: 'selectedOption', foreignKey: 'selectedOptionId' });
 QuizOption.hasMany(QuizResponse, { as: 'responses', foreignKey: 'selectedOptionId' });
 
+// StudySession Relationships
+StudySession.belongsTo(User, { as: 'creator', foreignKey: 'creatorId' });
+User.hasMany(StudySession, { as: 'createdSessions', foreignKey: 'creatorId' });
+
+StudySession.belongsTo(Course, { as: 'course', foreignKey: 'courseId' });
+Course.hasMany(StudySession, { as: 'studySessions', foreignKey: 'courseId' });
+
 module.exports = {
   Course,
   User,
@@ -90,5 +98,6 @@ module.exports = {
   QuizQuestion,
   QuizOption,
   QuizResponse,
+  StudySession,
 };
 
