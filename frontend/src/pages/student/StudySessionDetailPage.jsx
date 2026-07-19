@@ -6,22 +6,30 @@ import {
   MapPin, 
   Users, 
   FileText,
+  AlertCircle,
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { 
+  getStudySessionDetails, 
+  rsvpToSession, 
+  cancelRsvp 
+} from '../../services/studyCircleService';
 import RsvpButton from '../../components/studycircle/RsvpButton';
 import ParticipantList from '../../components/studycircle/ParticipantList';
 
 const StudySessionDetailPage = () => {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { token } = useAuth();
   
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [session, setSession] = useState(null);
   
-  // RSVP Simulation States
+  // RSVP Interaction States
   const [hasRsvpd, setHasRsvpd] = useState(false);
   const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [rsvpError, setRsvpError] = useState(null);
   
   // Simulation Controls for Testing
   const [simulateFull, setSimulateFull] = useState(false);
@@ -38,70 +46,67 @@ const StudySessionDetailPage = () => {
     metaDesc.setAttribute('content', 'View details and RSVP to join student-led collaborative review groups and study sessions.');
   }, []);
 
-  // Simulate loading session details on mount
+  // Fetch session details on mount
   useEffect(() => {
     const loadSessionDetails = async () => {
       setLoading(true);
-      // Simulate 600ms latency
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      // Mock session details based on story requirements
-      setSession({
-        id: id || 'test-session-uuid',
-        title: 'Midterm review for CSE-3106',
-        description: 'We will review chapters 1 to 4, specifically focusing on Database Normalization (1NF, 2NF, 3NF, BCNF) and Entity-Relationship Diagrams. Please bring your laptops and past question papers if you have any.',
-        location: 'Library Room 204',
-        sessionDateTime: new Date(Date.now() + 172800000).toISOString(), // 2 days in future
-        maxParticipants: 10,
-        rsvpCount: 4,
-        creator: {
-          name: 'Jane Doe'
-        },
-        course: {
-          code: 'CSE-3106',
-          title: 'Database Management Systems'
-        },
-        participants: [
-          { name: 'Alice Smith' },
-          { name: 'Bob Johnson' },
-          { name: 'Charlie Brown' },
-          { name: 'Diana Prince' }
-        ]
-      });
-      setLoading(false);
+      setError(null);
+      try {
+        const data = await getStudySessionDetails(id, token);
+        setSession(data);
+        setHasRsvpd(data.hasRsvpd);
+      } catch (err) {
+        console.error('Failed to load study session details:', err);
+        const errMsg = err.response?.data?.message || 'Failed to load study session details. It may have been deleted.';
+        setError(errMsg);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadSessionDetails();
-  }, [id]);
+    if (token && id) {
+      loadSessionDetails();
+    }
+  }, [id, token]);
 
-  // TODO: connect to POST /api/study-sessions/:id/rsvp and DELETE /api/study-sessions/:id/rsvp in Story 5
-  
   const handleRsvp = async () => {
     setRsvpLoading(true);
-    // Simulate 800ms API latency
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    setHasRsvpd(true);
-    setSession(prev => ({
-      ...prev,
-      rsvpCount: prev.rsvpCount + 1,
-      participants: [...prev.participants, { name: user?.name || 'My Test Account' }]
-    }));
-    setRsvpLoading(false);
+    setRsvpError(null);
+    try {
+      // TODO: connect to POST /api/study-sessions/:id/rsvp in Story 5 (Done!)
+      await rsvpToSession(id, token);
+      setHasRsvpd(true);
+      
+      // Reload session details to sync participants and counts with server
+      const updatedData = await getStudySessionDetails(id, token);
+      setSession(updatedData);
+    } catch (err) {
+      console.error('Error during RSVP:', err);
+      const errMsg = err.response?.data?.message || 'Failed to complete RSVP. Please try again.';
+      setRsvpError(errMsg);
+    } finally {
+      setRsvpLoading(false);
+    }
   };
 
   const handleCancelRsvp = async () => {
     setRsvpLoading(true);
-    // Simulate 800ms API latency
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    setHasRsvpd(false);
-    setSession(prev => ({
-      ...prev,
-      rsvpCount: prev.rsvpCount - 1,
-      participants: prev.participants.filter(p => p.name !== (user?.name || 'My Test Account'))
-    }));
-    setRsvpLoading(false);
+    setRsvpError(null);
+    try {
+      // TODO: connect to DELETE /api/study-sessions/:id/rsvp in Story 5 (Done!)
+      await cancelRsvp(id, token);
+      setHasRsvpd(false);
+      
+      // Reload session details to sync participants and counts with server
+      const updatedData = await getStudySessionDetails(id, token);
+      setSession(updatedData);
+    } catch (err) {
+      console.error('Error cancelling RSVP:', err);
+      const errMsg = err.response?.data?.message || 'Failed to cancel RSVP. Please try again.';
+      setRsvpError(errMsg);
+    } finally {
+      setRsvpLoading(false);
+    }
   };
 
   if (loading) {
@@ -123,9 +128,26 @@ const StudySessionDetailPage = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full border border-gray-100 shadow-xl text-center">
+          <AlertCircle className="h-12 w-12 text-rose-650 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Error Loading Session</h1>
+          <p className="text-gray-500 mb-6 text-sm">{error}</p>
+          <Link
+            to="/student/study-sessions"
+            className="inline-flex justify-center items-center px-6 py-3 text-sm font-medium rounded-xl text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 transition-all shadow-md"
+          >
+            Back to Study Sessions
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Compute attendance status
   const currentParticipants = session.rsvpCount;
-  // If simulation check is active, set max to equal the current count so it shows "Full"
   const max = simulateFull ? currentParticipants : session.maxParticipants;
   const isFull = max ? (currentParticipants >= max) : false;
 
@@ -166,13 +188,13 @@ const StudySessionDetailPage = () => {
             {/* Title Block */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8 shadow-sm">
               <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-100">
-                {session.course.code}
+                {session.course ? session.course.code : 'General'}
               </span>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mt-3 mb-2">
                 {session.title}
               </h1>
               <p className="text-gray-500 text-sm font-medium">
-                {session.course.title}
+                {session.course ? session.course.title : ''}
               </p>
             </div>
 
@@ -221,11 +243,11 @@ const StudySessionDetailPage = () => {
               {/* Organized by */}
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                 <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 text-sm font-bold shrink-0">
-                  {session.creator.name[0]}
+                  {session.creator ? session.creator.name[0] : 'U'}
                 </div>
                 <div>
                   <span className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Organizer</span>
-                  <span className="block text-xs font-bold text-gray-700">{session.creator.name}</span>
+                  <span className="block text-xs font-bold text-gray-700">{session.creator ? session.creator.name : 'Unknown'}</span>
                 </div>
               </div>
 
@@ -247,6 +269,14 @@ const StudySessionDetailPage = () => {
                   </div>
                 )}
               </div>
+
+              {/* RSVP Error Alert Banner */}
+              {rsvpError && (
+                <div className="p-3 mb-4 rounded-xl bg-rose-50 border border-rose-100 flex items-start gap-2.5 text-rose-800 text-xs animate-slide-up" id="rsvp-error-banner">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>{rsvpError}</div>
+                </div>
+              )}
 
               {/* RSVP Action Button */}
               <RsvpButton
