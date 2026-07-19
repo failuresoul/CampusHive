@@ -38,6 +38,7 @@ const BrowseLostFoundPage = () => {
   const [type, setType] = useState('all'); // 'all', 'lost', 'found'
   const [category, setCategory] = useState(''); // empty for 'all'
   const [status, setStatus] = useState('open'); // 'open' (default), 'all', 'claimed', 'resolved'
+  const [myPostsOnly, setMyPostsOnly] = useState(false);
 
   // Pagination State
   const [page, setPage] = useState(1);
@@ -102,6 +103,7 @@ const BrowseLostFoundPage = () => {
         search: search.trim() || undefined,
         page,
         pageSize,
+        reporterId: myPostsOnly ? user?.id : undefined,
       };
 
       const response = await getItems(filters, token);
@@ -123,7 +125,7 @@ const BrowseLostFoundPage = () => {
   // Trigger fetch when filters or page changes
   useEffect(() => {
     fetchItems();
-  }, [type, category, status, page]);
+  }, [type, category, status, page, myPostsOnly]);
 
   // Handle Search Submit
   const handleSearchSubmit = (e) => {
@@ -303,6 +305,24 @@ const BrowseLostFoundPage = () => {
                   <option value="claimed">Claimed</option>
                   <option value="resolved">Resolved</option>
                 </select>
+              </div>
+
+              {/* My Posts Toggle */}
+              <div className="col-span-2 md:col-span-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMyPostsOnly(!myPostsOnly);
+                    setPage(1);
+                  }}
+                  className={`w-full px-4 py-2.5 text-xs font-bold rounded-xl border transition-all ${
+                    myPostsOnly
+                      ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {myPostsOnly ? 'Showing My Reports' : 'Filter My Reports'}
+                </button>
               </div>
             </div>
 

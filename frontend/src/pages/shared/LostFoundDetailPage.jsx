@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getItemById, claimItem } from '../../services/lostFoundService';
+import { getItemById, claimItem, getClaims, confirmClaim } from '../../services/lostFoundService';
 import ClaimDialog from '../../components/lostfound/ClaimDialog';
 import {
   BookMarked,
@@ -14,7 +14,6 @@ import {
   Calendar,
   Tag,
   User,
-  Info,
   AlertCircle,
   CheckCircle2,
   Image as ImageIcon,
@@ -42,6 +41,8 @@ const LostFoundDetailPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isClaimSubmitting, setIsClaimSubmitting] = useState(false);
   const [claimedLocally, setClaimedLocally] = useState(false);
+  const [claims, setClaims] = useState([]);
+  const [loadingClaims, setLoadingClaims] = useState(false);
 
   // LocalStorage claim tracking key
   const claimStorageKey = `claimed_${id}_user_${user?.id}`;
@@ -97,6 +98,22 @@ const LostFoundDetailPage = () => {
           // Check if already claimed locally
           const isClaimed = localStorage.getItem(claimStorageKey) === 'true';
           setClaimedLocally(isClaimed);
+
+          // If current user is reporter, fetch claims
+          const isUserReporter = String(response.data.reporterId) === String(user?.id);
+          if (isUserReporter) {
+            try {
+              setLoadingClaims(true);
+              const claimsRes = await getClaims(id, token);
+              if (claimsRes?.success) {
+                setClaims(claimsRes.data || []);
+              }
+            } catch (claimErr) {
+              console.error('Error fetching claims list:', claimErr);
+            } finally {
+              setLoadingClaims(false);
+            }
+          }
         } else {
           setError('Item details not found.');
         }
@@ -111,7 +128,7 @@ const LostFoundDetailPage = () => {
     if (id && token) {
       fetchItem();
     }
-  }, [id, token, claimStorageKey]);
+  }, [id, token, claimStorageKey, user?.id]);
 
   const handleClaimSubmit = async (message) => {
     try {
@@ -130,6 +147,31 @@ const LostFoundDetailPage = () => {
       alert(err.response?.data?.message || 'Error submitting claim.');
     } finally {
       setIsClaimSubmitting(false);
+    }
+  };
+
+  const handleConfirmClaim = async (claimId) => {
+    try {
+      if (!window.confirm('Are you sure you want to confirm this claim? This will resolve the item and reject all other pending claims.')) {
+        return;
+      }
+      const res = await confirmClaim(id, claimId, token);
+      if (res?.success) {
+        // Re-fetch item details and claims list
+        const itemRes = await getItemById(id, token);
+        if (itemRes?.success && itemRes.data) {
+          setItem(itemRes.data);
+        }
+        const claimsRes = await getClaims(id, token);
+        if (claimsRes?.success) {
+          setClaims(claimsRes.data || []);
+        }
+      } else {
+        alert(res?.message || 'Failed to confirm claim.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Error confirming claim.');
     }
   };
 
@@ -372,13 +414,85 @@ const LostFoundDetailPage = () => {
               </div>
               <div className="p-5">
                 {isReporter ? (
-                  // Case 1: Logged-in user is the reporter
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex gap-3 text-sm text-gray-650">
-                    <Info className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold text-gray-800 block mb-0.5">Your Report</span>
-                      This is your own post. You cannot claim your own reported items.
+                  // Case 1: Logged-in user is the reporter - manage claims
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs uppercase font-bold text-gray-400 tracking-wider">Claims Received</span>
+                      <span className="text-xs font-semibold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
+                        {claims.length} {claims.length === 1 ? 'claim' : 'claims'}
+                      </span>
                     </div>
+
+                    {loadingClaims ? (
+                      <div className="flex justify-center py-4">
+                        <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : claims.length === 0 ? (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center text-sm text-gray-500">
+                        No claims have been submitted for this item yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                        {claims.map((claim) => (
+                          <div
+                            key={claim.id}
+                            className={`p-3.5 border rounded-xl space-y-2.5 transition-all ${
+                              claim.status === 'confirmed'
+                                ? 'bg-emerald-50/60 border-emerald-200'
+                                : claim.status === 'rejected'
+                                ? 'bg-gray-50/50 border-gray-150 opacity-70'
+                                : 'bg-white border-gray-200 hover:border-amber-300'
+                            }`}
+                          >
+                            {/* Claimant and Status Badge */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-5 w-5 bg-gray-150 rounded-full flex items-center justify-center text-[10px] font-extrabold text-gray-600">
+                                  {claim.claimant?.name?.charAt(0) || 'U'}
+                                </div>
+                                <span className="text-xs font-bold text-gray-900 line-clamp-1">
+                                  {claim.claimant?.name || 'Anonymous'}
+                                </span>
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide border ${
+                                  claim.status === 'confirmed'
+                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                    : claim.status === 'rejected'
+                                    ? 'bg-rose-50 text-rose-700 border-rose-150'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}
+                              >
+                                {claim.status}
+                              </span>
+                            </div>
+
+                            {/* Claims Message */}
+                            <p className="text-xs text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100 leading-relaxed break-words whitespace-pre-wrap">
+                              {claim.message}
+                            </p>
+
+                            {/* Claims Metadata & Actions */}
+                            <div className="flex items-center justify-between text-[10px] text-gray-400">
+                              <span>
+                                {new Date(claim.createdAt).toLocaleDateString(undefined, {
+                                  dateStyle: 'medium',
+                                })}
+                              </span>
+                              
+                              {status === 'open' && claim.status === 'pending' && (
+                                <button
+                                  onClick={() => handleConfirmClaim(claim.id)}
+                                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg transition-all shadow-sm"
+                                >
+                                  Confirm & Resolve
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : claimedLocally ? (
                   // Case 2: Claimed by current user

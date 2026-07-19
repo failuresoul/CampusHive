@@ -25,7 +25,7 @@ const Notification = sequelize.define('Notification', {
     allowNull: false,
   },
   type: {
-    type: DataTypes.ENUM('grade_posted'),
+    type: DataTypes.ENUM('grade_posted', 'lost_found_claim'),
     allowNull: false,
     defaultValue: 'grade_posted',
   },
