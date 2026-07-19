@@ -211,6 +211,20 @@ exports.launchQuiz = async (req, res) => {
     quiz.status = 'launched';
     await quiz.save();
 
+    // Fetch course for notification details
+    const course = await Course.findByPk(courseId);
+    if (course) {
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`course_${courseId}`).emit('quiz-live', {
+          courseId,
+          quizId,
+          courseName: course.name,
+          quizTitle: quiz.title
+        });
+      }
+    }
+
     // Use quizId as the reliable session identifier
     res.json({ success: true, data: { sessionId: quiz.id } });
 
