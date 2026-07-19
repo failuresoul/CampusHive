@@ -7,7 +7,6 @@ import {
   ChevronDown,
   RefreshCw,
   AlertCircle,
-  BookMarked,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getTeacherSubmissions } from '../../services/labTrackService';

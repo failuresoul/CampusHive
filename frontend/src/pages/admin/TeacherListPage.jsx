@@ -57,6 +57,8 @@ const TeacherListPage = () => {
   const [search, setSearch]                   = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [department, setDepartment]           = useState('');
+  const [sortKey, setSortKey]                 = useState('name');
+  const [sortDir, setSortDir]                 = useState('asc');
   const [currentPage, setCurrentPage]         = useState(1);
   const [pageSize, setPageSize]               = useState(PAGE_SIZE_OPTIONS[0]);
 
@@ -93,6 +95,8 @@ const TeacherListPage = () => {
           department,
           page:      currentPage,
           pageSize,
+          sortBy:    sortKey,
+          sortOrder: sortDir,
         },
         token
       );
@@ -108,7 +112,7 @@ const TeacherListPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, department, currentPage, pageSize, token]);
+  }, [debouncedSearch, department, currentPage, pageSize, sortKey, sortDir, token]);
 
   useEffect(() => {
     fetchTeachers();
@@ -124,6 +128,19 @@ const TeacherListPage = () => {
     setDepartment(val);
     setCurrentPage(1);
   };
+
+  const handleSort = useCallback(
+    (key) => {
+      if (key === sortKey) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortKey(key);
+        setSortDir('asc');
+      }
+      setCurrentPage(1);
+    },
+    [sortKey]
+  );
 
   const handleResetFilters = () => {
     setSearch('');
@@ -357,6 +374,9 @@ const TeacherListPage = () => {
           teachers={teachers}
           isLoading={isLoading}
           hasFilters={hasActiveFilters}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
         />
 
         {/* ── Pagination ────────────────────────────────────────────────── */}

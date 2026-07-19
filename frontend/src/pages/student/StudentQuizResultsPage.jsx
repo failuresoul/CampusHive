@@ -5,7 +5,7 @@ import { getMyQuizResults } from '../../services/quizService';
 import QuestionBreakdown from '../../components/quiz/QuestionBreakdown';
 
 const StudentQuizResultsPage = () => {
-  const { courseId, quizId } = useParams();
+  const { quizId } = useParams();
   const navigate = useNavigate();
   const { token } = useAuth();
 

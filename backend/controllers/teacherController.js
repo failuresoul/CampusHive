@@ -6,6 +6,12 @@ const { LabReport, Course, CourseTeacher } = require('../models/associations');
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const MAX_PAGE_SIZE = 100;
+const ALLOWED_SORT_ORDERS = ['asc', 'desc'];
+const ALLOWED_TEACHER_SORT_FIELDS = {
+  name:       'name',
+  department: 'department',
+  designation: 'designation',
+};
 
 // ── Allowed values (whitelist) ─────────────────────────────────────────────────
 
@@ -200,6 +206,8 @@ const getTeachers = async (req, res) => {
       department = '',
       page       = '1',
       pageSize   = '25',
+      sortBy     = 'name',
+      sortOrder  = 'asc',
     } = req.query;
 
     // ── Sanitise & validate ──────────────────────────────────────────────────
@@ -207,6 +215,11 @@ const getTeachers = async (req, res) => {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const pageSz  = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(pageSize, 10) || 25));
     const offset  = (pageNum - 1) * pageSz;
+
+    const safeSort  = ALLOWED_TEACHER_SORT_FIELDS[sortBy] || 'name';
+    const safeOrder = ALLOWED_SORT_ORDERS.includes(sortOrder.toLowerCase())
+      ? sortOrder.toLowerCase()
+      : 'asc';
 
     // ── Build WHERE clause ───────────────────────────────────────────────────
 
@@ -231,7 +244,7 @@ const getTeachers = async (req, res) => {
         'department', 'designation', 'phone', 'status',
         'createdAt',
       ],
-      order:  [['name', 'ASC']],
+      order:  [[safeSort, safeOrder.toUpperCase()]],
       limit:  pageSz,
       offset,
     });

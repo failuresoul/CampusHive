@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   Presentation, 
@@ -62,16 +62,25 @@ const formatDate = (dateString) => {
   });
 };
 
-const MaterialCard = ({ material, onDownloadClick }) => {
-  const [isBookmarked, setIsBookmarked] = useState(false);
+const MaterialCard = ({ material, onDownloadClick, onBookmarkToggle }) => {
+  const [isBookmarked, setIsBookmarked] = useState(!!material.isBookmarked);
   const { icon: Icon, color: iconColors } = getFileIcon(material.fileType);
 
-  const handleBookmarkToggle = (e) => {
+  useEffect(() => {
+    setIsBookmarked(!!material.isBookmarked);
+  }, [material.isBookmarked]);
+
+  const handleBookmarkToggle = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsBookmarked(prev => !prev);
-    console.log(`[Story 7 Bookmark Stub] Toggled bookmark for material ID: ${material.id}`);
-    // TODO: connect bookmark toggle to POST/DELETE /api/materials/:id/bookmark in Story 7
+    const newStatus = !isBookmarked;
+    setIsBookmarked(newStatus);
+    if (onBookmarkToggle) {
+      const success = await onBookmarkToggle(material, newStatus);
+      if (!success) {
+        setIsBookmarked(!newStatus);
+      }
+    }
   };
 
   const handleDownload = (e) => {
@@ -107,10 +116,17 @@ const MaterialCard = ({ material, onDownloadClick }) => {
 
       {/* Main Details */}
       <div className="flex-1 flex flex-col">
-        {/* Category Tag */}
-        <span className="inline-flex self-start px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-50 text-gray-600 border border-gray-100 mb-2">
-          {material.category || 'Lecture Notes'}
-        </span>
+        {/* Category & Course Tags */}
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {material.course?.code && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-100">
+              {material.course.code}
+            </span>
+          )}
+          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-50 text-gray-600 border border-gray-100">
+            {material.category || 'Lecture Notes'}
+          </span>
+        </div>
 
         {/* Title */}
         <h3 className="text-base font-bold text-gray-900 leading-snug mb-1 group-hover:text-amber-600 transition-colors">

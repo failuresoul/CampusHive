@@ -1,4 +1,4 @@
-const { Course, User, CourseTeacher, Enrollment, LabReport, CourseMaterial } = require('../models/associations');
+const { Course, User, CourseTeacher, Enrollment, LabReport, CourseMaterial, MaterialBookmark } = require('../models/associations');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const path = require('path');
@@ -901,9 +901,22 @@ const getMaterials = async (req, res) => {
       order: [['uploadedAt', 'DESC']],
     });
 
+    const bookmarkedMaterialIds = req.user.role === 'student'
+      ? (await MaterialBookmark.findAll({
+          where: { studentId: req.user.id },
+          attributes: ['materialId'],
+        })).map((b) => b.materialId)
+      : [];
+
+    const materialsWithBookmarkState = materials.map((m) => {
+      const plain = m.toJSON();
+      plain.isBookmarked = bookmarkedMaterialIds.includes(plain.id);
+      return plain;
+    });
+
     return res.status(200).json({
       success: true,
-      data: materials,
+      data: materialsWithBookmarkState,
     });
   } catch (error) {
     console.error('Error in getMaterials controller:', error);
@@ -1063,6 +1076,72 @@ const downloadMaterial = async (req, res) => {
   }
 };
 
+const bookmarkMaterial = async (req, res) => {
+  try {
+    const { materialId } = req.params;
+    const studentId = req.user.id;
+
+    // 1. Fetch material
+    const material = await CourseMaterial.findByPk(materialId);
+    if (!material) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course material not found.',
+      });
+    }
+
+    // 2. Verify student is enrolled in the course
+    const enrollment = await Enrollment.findOne({
+      where: { courseId: material.courseId, studentId },
+    });
+    if (!enrollment) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not enrolled in this course.',
+      });
+    }
+
+    // 3. Idempotently create bookmark
+    await MaterialBookmark.findOrCreate({
+      where: { studentId, materialId },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Material bookmarked successfully.',
+    });
+  } catch (error) {
+    console.error('Error in bookmarkMaterial controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while bookmarking material.',
+    });
+  }
+};
+
+const unbookmarkMaterial = async (req, res) => {
+  try {
+    const { materialId } = req.params;
+    const studentId = req.user.id;
+
+    // Idempotently destroy bookmark
+    await MaterialBookmark.destroy({
+      where: { studentId, materialId },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Material unbookmarked successfully.',
+    });
+  } catch (error) {
+    console.error('Error in unbookmarkMaterial controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while unbookmarking material.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
@@ -1079,4 +1158,6 @@ module.exports = {
   getMaterials,
   deleteMaterial,
   downloadMaterial,
+  bookmarkMaterial,
+  unbookmarkMaterial,
 };

@@ -233,13 +233,31 @@ async function runTests() {
     }
     // Clean up temporary database records
     console.log('Cleaning up database...');
-    await User.destroy({
-      where: {
-        email: {
-          [sequelize.Sequelize.Op.like]: '%@campushive.edu'
+    await sequelize.query('PRAGMA foreign_keys = OFF');
+    try {
+      const usersToDelete = await User.findAll({
+        where: {
+          email: {
+            [sequelize.Sequelize.Op.like]: '%@campushive.edu'
+          }
         }
+      });
+      const userIds = usersToDelete.map(u => u.id);
+      if (userIds.length > 0) {
+        await Enrollment.destroy({
+          where: {
+            studentId: userIds
+          }
+        });
+        await User.destroy({
+          where: {
+            id: userIds
+          }
+        });
       }
-    });
+    } finally {
+      await sequelize.query('PRAGMA foreign_keys = ON');
+    }
     console.log('Database cleaned. Done.');
     process.exit();
   }

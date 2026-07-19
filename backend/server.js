@@ -15,6 +15,7 @@ const quizAnswerRoutes = require('./routes/quizAnswerRoutes');
 const studySessionRoutes = require('./routes/studySessionRoutes');
 const lostFoundRoutes = require('./routes/lostFoundRoutes');
 const materialRoutes = require('./routes/materialRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 require('./models/associations'); // Force models and associations to be loaded for sync
 
 const app = express();
@@ -47,6 +48,7 @@ app.use('/api/lab-reports', labReportRoutes);
 app.use('/api/study-sessions', studySessionRoutes);
 app.use('/api/lost-found-items', lostFoundRoutes);
 app.use('/api/materials', materialRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Database Sync and Server Start
 // New columns are added via `node migrate-student-fields.js` (run once).
