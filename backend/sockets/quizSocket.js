@@ -1,5 +1,6 @@
 const { Quiz, QuizQuestion, QuizOption, Enrollment, QuizResponse } = require('../models/associations');
 const { quizzes, submitAnswer } = require('../services/quizSessionService');
+const { computeLeaderboard } = require('../services/leaderboardService');
 
 module.exports = (io) => {
   // Helper to reveal correct answers and personal scores after a question ends
@@ -34,6 +35,16 @@ module.exports = (io) => {
           isCorrect: response ? response.isCorrect : false,
           selectedOptionId: response ? response.selectedOptionId : null
         });
+      }
+
+      // ── Leaderboard broadcast (Story 9) ──────────────────────────────────
+      // After revealing per-student results, compute the running leaderboard
+      // from all QuizResponse rows so far and broadcast to the entire room.
+      try {
+        const leaderboard = await computeLeaderboard(sessionId);
+        io.to(`quiz_${sessionId}`).emit('leaderboard-update', leaderboard);
+      } catch (lbError) {
+        console.error('Error computing/broadcasting leaderboard:', lbError);
       }
     } catch (error) {
       console.error('Error revealing results:', error);
