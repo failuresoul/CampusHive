@@ -102,3 +102,49 @@ export const getLeaderboard = async (quizId, token) => {
     throw new Error('An unexpected error occurred while fetching leaderboard.');
   }
 };
+
+/**
+ * Fetches the student results for a quiz.
+ * GET /api/quizzes/:quizId/results
+ */
+export const getMyQuizResults = async (quizId, token) => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/quizzes/${quizId}/results`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      throw error.response.data;
+    }
+    throw new Error('An unexpected error occurred while fetching quiz results.');
+  }
+};
+
+/**
+ * Fetches the teacher analytics for a quiz.
+ * GET /api/quizzes/:quizId/analytics
+ */
+export const getQuizAnalytics = async (quizId, token) => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/quizzes/${quizId}/analytics`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      throw error.response.data;
+    }
+    throw new Error('An unexpected error occurred while fetching quiz analytics.');
+  }
+};

@@ -1,4 +1,4 @@
-const { Quiz, QuizQuestion, QuizOption, CourseTeacher, Course } = require('../models/associations');
+const { Quiz, QuizQuestion, QuizOption, CourseTeacher, Course, Enrollment, QuizResponse } = require('../models/associations');
 const sequelize = require('../config/database');
 
 /**
@@ -283,3 +283,193 @@ exports.getLeaderboard = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to fetch leaderboard.' });
   }
 };
+
+// ── Student Quiz Results API (Story 11) ──────────────────────────────────
+// GET /api/quizzes/:quizId/results
+exports.getMyQuizResults = async (req, res) => {
+  const { quizId } = req.params;
+  const studentId = req.user.id;
+
+  try {
+    const quiz = await Quiz.findByPk(quizId, {
+      include: {
+        model: QuizQuestion,
+        as: 'questions',
+      }
+    });
+
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found.' });
+    }
+
+    // Handles in-progress quiz status gracefully by returning the status
+    if (quiz.status !== 'closed') {
+      return res.status(200).json({
+        success: true,
+        status: quiz.status,
+        quizTitle: quiz.title
+      });
+    }
+
+    const leaderboard = await computeLeaderboard(quizId);
+    const totalParticipants = leaderboard.length;
+    const studentEntry = leaderboard.find(item => item.studentId === studentId);
+    const rank = studentEntry ? studentEntry.rank : (totalParticipants + 1);
+    const totalScore = studentEntry ? studentEntry.score : 0;
+
+    const questionsData = await Promise.all(quiz.questions.map(async (question) => {
+      const options = await QuizOption.findAll({ where: { questionId: question.id } });
+      const correctOption = options.find(o => o.isCorrect);
+      const response = await QuizResponse.findOne({
+        where: { questionId: question.id, studentId }
+      });
+
+      return {
+        questionIndex: question.order,
+        questionText: question.questionText,
+        options: options.map(o => ({
+          optionId: o.id,
+          optionText: o.optionText
+        })),
+        selectedOptionId: response ? response.selectedOptionId : null,
+        correctOptionId: correctOption ? correctOption.id : null,
+        isCorrect: response ? response.isCorrect : false,
+        pointsEarned: response ? response.score : 0
+      };
+    }));
+
+    questionsData.sort((a, b) => a.questionIndex - b.questionIndex);
+
+    const correctCount = questionsData.filter(q => q.isCorrect).length;
+    const totalQuestions = questionsData.length;
+    const maxPossibleScore = totalQuestions * 200;
+
+    res.json({
+      success: true,
+      data: {
+        quizTitle: quiz.title,
+        status: quiz.status,
+        totalParticipants,
+        studentResult: {
+          rank,
+          totalScore,
+          maxPossibleScore,
+          correctCount,
+          totalQuestions
+        },
+        questions: questionsData
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching quiz results:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch quiz results.' });
+  }
+};
+
+// ── Teacher Quiz Analytics API (Story 11) ────────────────────────────────
+// GET /api/quizzes/:quizId/analytics
+exports.getQuizAnalytics = async (req, res) => {
+  const { quizId } = req.params;
+  const teacherId = req.user.id;
+
+  try {
+    const quiz = await Quiz.findByPk(quizId);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found.' });
+    }
+
+    // Verify teacher is assigned to the course
+    const courseTeacher = await CourseTeacher.findOne({
+      where: {
+        courseId: quiz.courseId,
+        teacherId
+      }
+    });
+
+    if (!courseTeacher) {
+      return res.status(403).json({ success: false, message: 'Access denied. You are not assigned to teach this course.' });
+    }
+
+    // Handles in-progress quiz status gracefully by returning the status
+    if (quiz.status !== 'closed') {
+      return res.status(200).json({
+        success: true,
+        status: quiz.status,
+        quizTitle: quiz.title
+      });
+    }
+
+    const leaderboard = await computeLeaderboard(quizId);
+    const totalEnrolled = await Enrollment.count({ where: { courseId: quiz.courseId } });
+
+    const totalScoreSum = leaderboard.reduce((sum, item) => sum + item.score, 0);
+    const averageScore = leaderboard.length > 0 ? Math.round(totalScoreSum / leaderboard.length) : 0;
+
+    const allResponses = await QuizResponse.findAll({ where: { quizId } });
+    const totalResponseTimeSum = allResponses.reduce((sum, r) => sum + r.responseTimeMs, 0);
+    const averageResponseTimeMs = allResponses.length > 0 ? Math.round(totalResponseTimeSum / allResponses.length) : 0;
+
+    const questions = await QuizQuestion.findAll({
+      where: { quizId },
+      order: [['order', 'ASC']]
+    });
+
+    const questionAnalytics = await Promise.all(questions.map(async (question) => {
+      const options = await QuizOption.findAll({ where: { questionId: question.id } });
+      const optionAnalytics = [];
+      let questionResponses = 0;
+      let correctCount = 0;
+
+      for (const option of options) {
+        const count = await QuizResponse.count({
+          where: {
+            questionId: question.id,
+            selectedOptionId: option.id
+          }
+        });
+        questionResponses += count;
+        if (option.isCorrect) {
+          correctCount += count;
+        }
+
+        optionAnalytics.push({
+          optionId: option.id,
+          optionText: option.optionText,
+          count,
+          isCorrect: option.isCorrect
+        });
+      }
+
+      return {
+        questionIndex: question.order,
+        questionText: question.questionText,
+        totalResponses: questionResponses,
+        correctCount,
+        options: optionAnalytics
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        quizTitle: quiz.title,
+        status: quiz.status,
+        overallStats: {
+          averageScore,
+          maxPossibleScore: questions.length * 200,
+          totalEnrolled,
+          totalResponded: leaderboard.length,
+          completionRate: totalEnrolled > 0 ? Math.round((leaderboard.length / totalEnrolled) * 100) : 0,
+          averageResponseTimeMs,
+          totalQuestions: questions.length
+        },
+        leaderboard,
+        questionAnalytics
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching quiz analytics:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch quiz analytics.' });
+  }
+};
+
