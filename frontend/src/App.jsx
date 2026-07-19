@@ -22,6 +22,7 @@ import StudentCoursesPage from './pages/student/StudentCoursesPage';
 import LabReportUploadPage from './pages/student/LabReportUploadPage';
 import SubmissionHistoryPage from './pages/student/SubmissionHistoryPage';
 import SubmissionDetailPage from './pages/student/SubmissionDetailPage';
+import QuizTakingPage from './pages/student/QuizTakingPage';
 import TeacherSubmissionQueuePage from './pages/teacher/TeacherSubmissionQueuePage';
 import GradeSubmissionPage from './pages/teacher/GradeSubmissionPage';
 import QuizCreatePage from './pages/teacher/QuizCreatePage';
@@ -250,6 +251,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <SubmissionDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/courses/:courseId/quizzes/:quizId/take"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <QuizTakingPage />
                 </ProtectedRoute>
               }
             />
