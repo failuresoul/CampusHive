@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import QuizQuestionEditor from '../../components/teacher/QuizQuestionEditor';
+import { createQuiz } from '../../services/quizService';
+import { useAuth } from '../../context/AuthContext';
 
 const generateId = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
@@ -14,6 +16,7 @@ const defaultQuestion = () => ({
 const QuizCreatePage = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuth();
 
   const [title, setTitle] = useState('');
   const [timeLimit, setTimeLimit] = useState(30);
@@ -113,11 +116,8 @@ const QuizCreatePage = () => {
       questions
     };
 
-    // TODO: connect to POST /api/courses/:courseId/quizzes in Story 2
-    console.log('Quiz payload to save:', payload);
-
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await createQuiz(courseId, payload, token);
       setIsSaving(false);
       setSaveSuccess(true);
       
@@ -125,7 +125,11 @@ const QuizCreatePage = () => {
         // Navigate back to course dashboard or quizzes list
         navigate(`/teacher/dashboard`); 
       }, 1500);
-    }, 1000);
+    } catch (error) {
+      console.error('Save quiz error:', error);
+      setIsSaving(false);
+      setErrors({ ...errors, serverError: error.message || 'Failed to save quiz. Please try again.' });
+    }
   };
 
   return (
@@ -173,6 +177,13 @@ const QuizCreatePage = () => {
             </button>
           </div>
         </div>
+
+        {errors.serverError && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center shadow-sm">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            {errors.serverError}
+          </div>
+        )}
 
         {saveSuccess && (
           <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center shadow-sm">
