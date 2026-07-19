@@ -32,6 +32,7 @@ import QuizCreatePage from './pages/teacher/QuizCreatePage';
 import QuizLaunchPage from './pages/teacher/QuizLaunchPage';
 import StudentQuizResultsPage from './pages/student/StudentQuizResultsPage';
 import TeacherQuizAnalyticsPage from './pages/teacher/TeacherQuizAnalyticsPage';
+import CourseFileUploadPage from './pages/teacher/CourseFileUploadPage';
 import PostLostFoundItemPage from './pages/shared/PostLostFoundItemPage';
 import BrowseLostFoundPage from './pages/shared/BrowseLostFoundPage';
 import LostFoundDetailPage from './pages/shared/LostFoundDetailPage';
@@ -223,6 +224,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['teacher']}>
                   <TeacherQuizAnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teacher/courses/:courseId/materials/upload"
+              element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <CourseFileUploadPage />
                 </ProtectedRoute>
               }
             />
