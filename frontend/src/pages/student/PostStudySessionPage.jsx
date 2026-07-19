@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getMyCourses } from '../../services/studentService';
+import { createStudySession } from '../../services/studyCircleService';
 import StudySessionForm from '../../components/studycircle/StudySessionForm';
 
 const PostStudySessionPage = () => {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
 
   // SEO: Title & Meta Description
   useEffect(() => {
@@ -50,30 +53,26 @@ const PostStudySessionPage = () => {
   // Form submission handler
   const handleFormSubmit = async (formData) => {
     setIsSubmitting(true);
+    setSubmitError(null);
     
-    // Construct the submission payload
-    const selectedCourse = courses.find(c => (c.id || c._id) === formData.courseId);
     const payload = {
-      ...formData,
-      courseName: selectedCourse ? selectedCourse.name : '',
-      courseCode: selectedCourse ? selectedCourse.code : '',
-      maxParticipants: formData.maxParticipants ? Number(formData.maxParticipants) : null,
-      createdAt: new Date().toISOString()
+      title: formData.title,
+      courseId: formData.courseId,
+      dateTime: formData.dateTime,
+      location: formData.location,
+      description: formData.description,
+      maxParticipants: formData.maxParticipants ? Number(formData.maxParticipants) : null
     };
 
-    // Log the full object to console as expected
-    console.log('Submitted Study Session:', payload);
-
     try {
-      // Simulate API latency (1.5s) to allow verifying the loading state visual
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // TODO: connect to POST /api/study-sessions in Story 2
+      await createStudySession(payload, token);
       
-      setSubmittedData(payload);
-      setIsSuccess(true);
+      // On success, redirect to the Browse Study Posts view (Story 3)
+      navigate('/student/study-sessions');
     } catch (err) {
       console.error('Error submitting study session form:', err);
+      const errMsg = err.response?.data?.message || 'Failed to post study session. Please check your connection and try again.';
+      setSubmitError(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -216,11 +215,21 @@ const PostStudySessionPage = () => {
               </div>
             ) : (
               /* Render Form */
-              <StudySessionForm
-                courses={courses}
-                onSubmit={handleFormSubmit}
-                isLoading={isSubmitting}
-              />
+              <div className="space-y-6">
+                {submitError && (
+                  <div className="p-4 rounded-xl bg-rose-50 border border-rose-100 flex items-start gap-3 text-rose-800 text-sm animate-slide-up" id="submit-error-banner">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Error creating session:</span> {submitError}
+                    </div>
+                  </div>
+                )}
+                <StudySessionForm
+                  courses={courses}
+                  onSubmit={handleFormSubmit}
+                  isLoading={isSubmitting}
+                />
+              </div>
             )}
           </div>
         </div>

@@ -20,6 +20,7 @@ import AssignTeacherPage from './pages/admin/AssignTeacherPage';
 import AutoEnrollPage from './pages/admin/AutoEnrollPage';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
 import PostStudySessionPage from './pages/student/PostStudySessionPage';
+import BrowseStudySessionsPage from './pages/student/BrowseStudySessionsPage';
 import LabReportUploadPage from './pages/student/LabReportUploadPage';
 import SubmissionHistoryPage from './pages/student/SubmissionHistoryPage';
 import SubmissionDetailPage from './pages/student/SubmissionDetailPage';
@@ -242,6 +243,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <PostStudySessionPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/study-sessions"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <BrowseStudySessionsPage />
                 </ProtectedRoute>
               }
             />
