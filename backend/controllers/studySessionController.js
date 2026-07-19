@@ -1,4 +1,5 @@
-const { StudySession, Enrollment } = require('../models/associations');
+const { StudySession, Enrollment, User, Course } = require('../models/associations');
+const { Op } = require('sequelize');
 
 /**
  * createStudySession
@@ -88,6 +89,87 @@ const createStudySession = async (req, res) => {
   }
 };
 
+/**
+ * getStudySessions
+ * GET /api/study-sessions
+ * Retrieves a paginated list of study sessions, optionally filtered by course and upcoming status.
+ */
+const getStudySessions = async (req, res) => {
+  try {
+    const { courseId, upcoming, page, pageSize } = req.query;
+
+    const pageNum = parseInt(page) || 1;
+    const limit = parseInt(pageSize) || 10;
+    const offset = (pageNum - 1) * limit;
+
+    const whereClause = {};
+
+    // Filter by course if provided
+    if (courseId) {
+      whereClause.courseId = courseId;
+    }
+
+    // Filter upcoming (default true)
+    // If upcoming is 'true' (or default), only show sessions in the future (sessionDateTime >= now)
+    const isUpcoming = upcoming === undefined || upcoming === 'true';
+    if (isUpcoming) {
+      whereClause.sessionDateTime = {
+        [Op.gte]: new Date()
+      };
+    }
+
+    const { count, rows } = await StudySession.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['name']
+        },
+        {
+          model: Course,
+          as: 'course',
+          attributes: ['code', 'title']
+        }
+      ],
+      order: [['sessionDateTime', 'ASC']],
+      limit,
+      offset
+    });
+
+    // Format output and add placeholder rsvpCount
+    const sessions = rows.map(session => {
+      const plain = session.get({ plain: true });
+      return {
+        ...plain,
+        rsvpCount: 0 // Placeholder until Story 5
+      };
+    });
+
+    const totalPages = Math.ceil(count / limit);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        sessions,
+        pagination: {
+          page: pageNum,
+          pageSize: limit,
+          totalItems: count,
+          totalPages
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching study sessions:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: Could not fetch study sessions.'
+    });
+  }
+};
+
 module.exports = {
   createStudySession,
+  getStudySessions,
 };

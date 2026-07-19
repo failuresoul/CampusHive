@@ -1,8 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { createStudySession } = require('../controllers/studySessionController');
+const { createStudySession, getStudySessions } = require('../controllers/studySessionController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+
+/**
+ * GET /api/study-sessions
+ * Retrieves all study sessions (filterable & paginated).
+ * Protected: Authenticated users.
+ */
+router.get(
+  '/',
+  authMiddleware,
+  getStudySessions
+);
 
 /**
  * POST /api/study-sessions
