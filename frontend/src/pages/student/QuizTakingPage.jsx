@@ -8,7 +8,7 @@ import QuizQuestionDisplay from '../../components/student/QuizQuestionDisplay';
 const QuizTakingPage = () => {
   const { courseId, quizId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   
   // Use the global persistent socket connection for the student
   const socket = useQuizSocket();
@@ -18,6 +18,67 @@ const QuizTakingPage = () => {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Submit and Reveal states
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [submittedOptionId, setSubmittedOptionId] = useState(null);
+  const [revealData, setRevealData] = useState(null);
+
+  const submitAnswerREST = async (optionId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/quizzes/${quizId}/questions/${currentQuestion.id}/answer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ optionId })
+      });
+      const resData = await response.json();
+      if (resData.success) {
+        console.log('Answer recorded via REST fallback.');
+        setHasSubmitted(true);
+        setSubmittedOptionId(optionId);
+        setIsLocked(true);
+      } else {
+        console.error('REST fallback answer submission failed:', resData.message);
+        if (resData.message?.includes('already submitted') || resData.message?.includes('expired')) {
+          setIsLocked(true);
+          setHasSubmitted(true);
+        } else {
+          setIsLocked(false);
+          setHasSubmitted(false);
+          setSubmittedOptionId(null);
+          alert(`Failed to submit: ${resData.message}`);
+        }
+      }
+    } catch (err) {
+      console.error('REST fallback error:', err);
+      setIsLocked(false);
+      setHasSubmitted(false);
+      setSubmittedOptionId(null);
+      alert('Network connection error. Failed to submit answer.');
+    }
+  };
+
+  const handleSubmitAnswer = (optionId) => {
+    if (isLocked || hasSubmitted) return;
+
+    setIsLocked(true);
+    setHasSubmitted(true);
+    setSubmittedOptionId(optionId);
+
+    if (socket && socket.connected) {
+      // Primary: Socket submission
+      socket.emit('submit-answer', {
+        questionId: currentQuestion.id,
+        optionId
+      });
+    } else {
+      // Fallback: REST submission
+      submitAnswerREST(optionId);
+    }
+  };
 
   useEffect(() => {
     if (!socket || !user) return;
@@ -35,7 +96,19 @@ const QuizTakingPage = () => {
       // Reconnected mid-quiz
       setCurrentQuestion(data.question);
       setTimeRemaining(data.timeRemaining);
-      setIsLocked(data.timeRemaining <= 0);
+      
+      if (data.reveal) {
+        setRevealData(data.reveal);
+        setSubmittedOptionId(data.reveal.selectedOptionId);
+        setHasSubmitted(!!data.reveal.selectedOptionId);
+        setIsLocked(true);
+      } else {
+        setRevealData(null);
+        setSubmittedOptionId(null);
+        setHasSubmitted(false);
+        setIsLocked(data.timeRemaining <= 0);
+      }
+      
       setQuizState('active');
     };
 
@@ -43,6 +116,9 @@ const QuizTakingPage = () => {
       setCurrentQuestion(data.question);
       setTimeRemaining(data.timeLimit);
       setIsLocked(false);
+      setHasSubmitted(false);
+      setSubmittedOptionId(null);
+      setRevealData(null);
       setQuizState('active');
     };
 
@@ -60,12 +136,29 @@ const QuizTakingPage = () => {
       setQuizState('error');
     };
 
+    const handleAnswerReceived = (data) => {
+      if (currentQuestion && data.questionId === currentQuestion.id) {
+        setHasSubmitted(true);
+        setSubmittedOptionId(data.optionId);
+        setIsLocked(true);
+      }
+    };
+
+    const handleQuestionReveal = (data) => {
+      if (currentQuestion && data.questionId === currentQuestion.id) {
+        setRevealData(data);
+        setIsLocked(true);
+      }
+    };
+
     socket.on('joined-successfully', handleJoined);
     socket.on('sync-state', handleSyncState);
     socket.on('question-started', handleQuestionStarted);
     socket.on('question-ended', handleQuestionEnded);
     socket.on('quiz-ended', handleQuizEnded);
     socket.on('error', handleError);
+    socket.on('answer-received', handleAnswerReceived);
+    socket.on('question-reveal', handleQuestionReveal);
 
     return () => {
       socket.off('joined-successfully', handleJoined);
@@ -74,8 +167,10 @@ const QuizTakingPage = () => {
       socket.off('question-ended', handleQuestionEnded);
       socket.off('quiz-ended', handleQuizEnded);
       socket.off('error', handleError);
+      socket.off('answer-received', handleAnswerReceived);
+      socket.off('question-reveal', handleQuestionReveal);
     };
-  }, [socket, user, courseId, quizId]);
+  }, [socket, user, courseId, quizId, currentQuestion]);
 
   if (quizState === 'connecting') {
     return (
@@ -152,7 +247,60 @@ const QuizTakingPage = () => {
       <div className="flex-1 overflow-y-auto px-4 py-8 sm:px-6 sm:py-12">
         <div className="max-w-4xl mx-auto">
           {currentQuestion ? (
-            <QuizQuestionDisplay question={currentQuestion} isLocked={isLocked} />
+            <>
+              <QuizQuestionDisplay 
+                question={currentQuestion} 
+                isLocked={isLocked} 
+                onSubmitAnswer={handleSubmitAnswer}
+                revealData={revealData}
+                submittedOptionId={submittedOptionId}
+              />
+              
+              {/* Submission and Reveal Banners */}
+              <div className="mt-8">
+                {hasSubmitted && !revealData && (
+                  <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center justify-center text-indigo-700 font-semibold shadow-sm animate-pulse">
+                    <svg className="w-5 h-5 mr-3 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Answer submitted, waiting for results...
+                  </div>
+                )}
+
+                {revealData && (
+                  <div className={`p-6 rounded-2xl border-2 shadow-sm transition-all duration-300 ${
+                    revealData.selectedOptionId === null
+                      ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
+                      : revealData.isCorrect
+                        ? 'border-green-200 bg-green-50 text-green-800'
+                        : 'border-red-200 bg-red-50 text-red-800'
+                  }`}>
+                    <div className="flex items-center">
+                      <span className="text-3xl mr-4">
+                        {revealData.selectedOptionId === null ? '⌛' : revealData.isCorrect ? '🎉' : '❌'}
+                      </span>
+                      <div>
+                        <h3 className="text-xl font-bold">
+                          {revealData.selectedOptionId === null 
+                            ? "Time's Up!" 
+                            : revealData.isCorrect 
+                              ? 'Correct! Well done.' 
+                              : 'Incorrect.'}
+                        </h3>
+                        <p className="text-sm mt-1 opacity-90">
+                          {revealData.selectedOptionId === null 
+                            ? "You didn't submit an answer in time." 
+                            : revealData.isCorrect 
+                              ? 'You got this question right! Great job.' 
+                              : 'Better luck on the next question!'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
             <div className="text-center text-gray-500 py-12">Loading question...</div>
           )}

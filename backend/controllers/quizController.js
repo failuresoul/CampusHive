@@ -233,3 +233,33 @@ exports.launchQuiz = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to launch quiz.' });
   }
 };
+
+const { submitAnswer } = require('../services/quizSessionService');
+
+exports.submitAnswerREST = async (req, res) => {
+  const { quizId, questionId } = req.params;
+  const { optionId } = req.body;
+  const studentId = req.user.id;
+
+  try {
+    const response = await submitAnswer({ quizId, questionId, studentId, optionId });
+    res.status(200).json({
+      success: true,
+      message: 'Answer recorded successfully.',
+      data: {
+        id: response.id,
+        quizId: response.quizId,
+        questionId: response.questionId,
+        selectedOptionId: response.selectedOptionId,
+        answeredAt: response.answeredAt,
+        responseTimeMs: response.responseTimeMs
+      }
+    });
+  } catch (error) {
+    console.error('Error in submitAnswerREST:', error);
+    if (error.status && error.message) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    res.status(500).json({ success: false, message: 'Failed to record answer.' });
+  }
+};
