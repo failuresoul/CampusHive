@@ -828,6 +828,76 @@ const uploadMaterials = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/courses/:courseId/materials
+ * Retrieve all learning materials for a specific course.
+ * Protected by auth + teacher role verification and course assignment.
+ */
+const getMaterials = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const teacherId = req.user.id;
+    const { category, search } = req.query;
+
+    // 1. Verify course exists
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found.',
+      });
+    }
+
+    // 2. Verify logged-in teacher is assigned to the course
+    const assignment = await CourseTeacher.findOne({
+      where: { courseId, teacherId },
+    });
+    if (!assignment) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not assigned to this course.',
+      });
+    }
+
+    // 3. Build query filters
+    const whereClause = { courseId };
+
+    if (category && category.trim() !== '') {
+      whereClause.category = category.trim();
+    }
+
+    if (search && search.trim() !== '') {
+      whereClause.title = {
+        [Op.like]: `%${search.trim()}%`,
+      };
+    }
+
+    // 4. Fetch materials
+    const materials = await CourseMaterial.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: User,
+          as: 'teacher',
+          attributes: ['id', 'name', 'email'],
+        },
+      ],
+      order: [['uploadedAt', 'DESC']],
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: materials,
+    });
+  } catch (error) {
+    console.error('Error in getMaterials controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching course materials.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
@@ -841,4 +911,5 @@ module.exports = {
   downloadLabReport,
   getLabReportDetail,
   uploadMaterials,
+  getMaterials,
 };
