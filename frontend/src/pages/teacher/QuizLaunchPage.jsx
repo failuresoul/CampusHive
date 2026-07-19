@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { useAuth } from '../../context/AuthContext';
-import { getQuizDetails } from '../../services/quizService';
+import { getQuizDetails, launchQuiz } from '../../services/quizService';
 import QuizPreLaunchSummary from '../../components/teacher/QuizPreLaunchSummary';
 import QuizWaitingRoom from '../../components/teacher/QuizWaitingRoom';
 
@@ -14,6 +15,10 @@ const QuizLaunchPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stage, setStage] = useState('summary'); // 'summary' | 'waiting-room' | 'live'
+  
+  // WebSocket state
+  const [socket, setSocket] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
 
   useEffect(() => {
     const fetchQuizDetails = async () => {
@@ -34,15 +39,38 @@ const QuizLaunchPage = () => {
     fetchQuizDetails();
   }, [courseId, quizId, token]);
 
-  const handleStartQuiz = () => {
-    // Transition from summary to waiting room
-    setStage('waiting-room');
+  const handleStartQuiz = async () => {
+    try {
+      const response = await launchQuiz(courseId, quizId, token);
+      if (response.success) {
+        const returnedSessionId = response.data.sessionId;
+        setSessionId(returnedSessionId);
+
+        // Connect WebSocket
+        const newSocket = io('http://localhost:5000');
+        setSocket(newSocket);
+
+        newSocket.emit('teacher-join', {
+          sessionId: returnedSessionId,
+          courseId,
+          token
+        });
+
+        // Transition from summary to waiting room
+        setStage('waiting-room');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to launch quiz.');
+    }
   };
 
   const handleBeginFirstQuestion = () => {
-    // TODO: connect to POST /api/courses/:courseId/quizzes/:quizId/launch and WebSocket session join events in Story 4
-    console.log('Transitioning to Live Quiz Mechanics (Story 4). Mock start.');
-    alert('Real-time mechanics (Story 4) will begin here!');
+    if (socket && sessionId) {
+      socket.emit('start-question', { sessionId, questionIndex: 0 });
+      // Depending on UI flow, we might change stage to 'live' here 
+      // or rely on a 'question-started' event. For this story, just emit it.
+      alert('Question 1 Started! Broadcasting to students...');
+    }
   };
 
   if (loading) {
@@ -88,7 +116,11 @@ const QuizLaunchPage = () => {
         )}
 
         {stage === 'waiting-room' && (
-          <QuizWaitingRoom quiz={quiz} onBeginQuiz={handleBeginFirstQuestion} />
+          <QuizWaitingRoom 
+            quiz={quiz} 
+            onBeginQuiz={handleBeginFirstQuestion} 
+            socket={socket} 
+          />
         )}
 
       </div>

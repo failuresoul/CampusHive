@@ -182,3 +182,40 @@ exports.getQuizDetails = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to fetch quiz details.' });
   }
 };
+
+exports.launchQuiz = async (req, res) => {
+  const { courseId, quizId } = req.params;
+  const teacherId = req.user.id;
+
+  try {
+    const courseTeacher = await CourseTeacher.findOne({
+      where: { courseId, teacherId }
+    });
+
+    if (!courseTeacher) {
+      return res.status(403).json({ success: false, message: 'You are not assigned to this course.' });
+    }
+
+    const quiz = await Quiz.findOne({
+      where: { id: quizId, courseId, teacherId }
+    });
+
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found.' });
+    }
+
+    if (quiz.status === 'closed') {
+      return res.status(400).json({ success: false, message: 'This quiz is already closed.' });
+    }
+
+    quiz.status = 'launched';
+    await quiz.save();
+
+    // Use quizId as the reliable session identifier
+    res.json({ success: true, data: { sessionId: quiz.id } });
+
+  } catch (error) {
+    console.error('Error launching quiz:', error);
+    res.status(500).json({ success: false, message: 'Failed to launch quiz.' });
+  }
+};

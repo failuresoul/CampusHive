@@ -31,4 +31,13 @@ router.get(
   quizController.getQuizDetails
 );
 
+// POST /api/courses/:courseId/quizzes/:quizId/launch
+// Launch a quiz (teacher only)
+router.post(
+  '/:quizId/launch',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+  quizController.launchQuiz
+);
+
 module.exports = router;
