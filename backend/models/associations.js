@@ -4,6 +4,9 @@ const CourseTeacher = require('./CourseTeacher');
 const Enrollment = require('./Enrollment');
 const LabReport = require('./LabReport');
 const Notification = require('./Notification');
+const Quiz = require('./Quiz');
+const QuizQuestion = require('./QuizQuestion');
+const QuizOption = require('./QuizOption');
 
 // Course - User (Teacher) Many-to-Many Relationship
 Course.belongsToMany(User, {
@@ -49,6 +52,19 @@ Course.hasMany(LabReport, { as: 'labReports', foreignKey: 'courseId' });
 Notification.belongsTo(User, { as: 'recipient', foreignKey: 'userId' });
 User.hasMany(Notification, { as: 'notifications', foreignKey: 'userId' });
 
+// Quiz Relationships
+Quiz.belongsTo(Course, { as: 'course', foreignKey: 'courseId' });
+Course.hasMany(Quiz, { as: 'quizzes', foreignKey: 'courseId' });
+
+Quiz.belongsTo(User, { as: 'teacher', foreignKey: 'teacherId' });
+User.hasMany(Quiz, { as: 'createdQuizzes', foreignKey: 'teacherId' });
+
+Quiz.hasMany(QuizQuestion, { as: 'questions', foreignKey: 'quizId' });
+QuizQuestion.belongsTo(Quiz, { as: 'quiz', foreignKey: 'quizId' });
+
+QuizQuestion.hasMany(QuizOption, { as: 'options', foreignKey: 'questionId' });
+QuizOption.belongsTo(QuizQuestion, { as: 'question', foreignKey: 'questionId' });
+
 module.exports = {
   Course,
   User,
@@ -56,5 +72,8 @@ module.exports = {
   Enrollment,
   LabReport,
   Notification,
+  Quiz,
+  QuizQuestion,
+  QuizOption,
 };
 
