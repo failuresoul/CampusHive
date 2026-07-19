@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Info, Loader2, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Info, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import SelectField from '../shared/SelectField';
 import DatePickerField from '../shared/DatePickerField';
 import PhotoUploadPreview from './PhotoUploadPreview';
+import { useAuth } from '../../context/AuthContext';
+import { postItem } from '../../services/lostFoundService';
 
 const CATEGORY_OPTIONS = [
   { value: 'electronics', label: 'Electronics' },
@@ -14,6 +17,9 @@ const CATEGORY_OPTIONS = [
 ];
 
 const LostFoundForm = ({ onCancel }) => {
+  const { token } = useAuth();
+  const navigate = useNavigate();
+
   // Form State
   const [type, setType] = useState('lost'); // 'lost' or 'found'
   const [title, setTitle] = useState('');
@@ -66,8 +72,9 @@ const LostFoundForm = ({ onCancel }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrors({});
 
     if (!validateForm()) {
       return;
@@ -75,26 +82,31 @@ const LostFoundForm = ({ onCancel }) => {
 
     setIsSubmitting(true);
 
-    // Prepare report data
-    const reportData = {
-      type,
-      title,
-      category,
-      location,
-      date,
-      description,
-      photo: file, // File object reference or null
-      submittedAt: new Date().toISOString()
-    };
+    const formData = new FormData();
+    formData.append('type', type);
+    formData.append('title', title.trim());
+    formData.append('category', category);
+    formData.append('location', location.trim());
+    formData.append('itemDate', date);
+    formData.append('description', description.trim());
+    if (file) {
+      formData.append('photo', file);
+    }
 
-    // TODO: connect to POST /api/lost-found-items in Story 2 (multipart/form-data for the photo)
-    console.log('Submitted Lost/Found Item Report:', reportData);
-
-    // Simulate submission loading state for 1.5 seconds
-    setTimeout(() => {
+    try {
+      await postItem(formData, token);
       setIsSubmitting(false);
       setIsSuccess(true);
-    }, 1500);
+      
+      // Automatically redirect to the Browse Posts view after 2 seconds
+      setTimeout(() => {
+        navigate('/lost-found');
+      }, 2000);
+    } catch (err) {
+      setIsSubmitting(false);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to submit report.';
+      setErrors({ submit: errMsg });
+    }
   };
 
   const handleReset = () => {
@@ -118,7 +130,7 @@ const LostFoundForm = ({ onCancel }) => {
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Report Submitted!</h2>
         <p className="text-gray-500 mb-8 max-w-md mx-auto">
-          Your {type === 'lost' ? 'lost item' : 'found item'} report has been successfully posted. Other users can now search for it and contact you.
+          Your {type === 'lost' ? 'lost item' : 'found item'} report has been successfully posted. Redirecting to posts list...
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
@@ -130,10 +142,10 @@ const LostFoundForm = ({ onCancel }) => {
           </button>
           <button
             type="button"
-            onClick={onCancel}
+            onClick={() => navigate('/lost-found')}
             className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
           >
-            Go Back
+            Go to Browse
           </button>
         </div>
       </div>
@@ -314,6 +326,14 @@ const LostFoundForm = ({ onCancel }) => {
           </p>
         </div>
       </div>
+
+      {/* Submit Error Alert */}
+      {errors.submit && (
+        <div className="flex items-start space-x-2 text-red-800 bg-red-50 p-4 rounded-xl border border-red-100 animate-fade-in">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-650" />
+          <p className="text-sm font-semibold">{errors.submit}</p>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="pt-4 border-t border-gray-200 flex flex-col-reverse sm:flex-row justify-end gap-3">
