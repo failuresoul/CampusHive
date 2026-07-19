@@ -25,7 +25,7 @@ const getFileIcon = (fileName) => {
   }
 };
 
-const MaterialsTable = ({ materials, onDeleteClick }) => {
+const MaterialsTable = ({ materials, onDeleteClick, onDownloadClick }) => {
   const formatDate = (dateStr) => {
     try {
       return new Date(dateStr).toLocaleDateString(undefined, {
@@ -108,13 +108,22 @@ const MaterialsTable = ({ materials, onDeleteClick }) => {
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => onDeleteClick && onDeleteClick(m)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                    title="Delete Material"
-                  >
-                    <Trash2 className="w-4.5 h-4.5" />
-                  </button>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => onDownloadClick && onDownloadClick(m)}
+                      className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50/50 rounded-xl transition-all"
+                      title="Download Material"
+                    >
+                      <Download className="w-4.5 h-4.5" />
+                    </button>
+                    <button
+                      onClick={() => onDeleteClick && onDeleteClick(m)}
+                      className="p-2 text-gray-400 hover:text-red-650 hover:bg-red-50 rounded-xl transition-all"
+                      title="Delete Material"
+                    >
+                      <Trash2 className="w-4.5 h-4.5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -143,13 +152,22 @@ const MaterialsTable = ({ materials, onDeleteClick }) => {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => onDeleteClick && onDeleteClick(m)}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
-                title="Delete Material"
-              >
-                <Trash2 className="w-4.5 h-4.5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onDownloadClick && onDownloadClick(m)}
+                  className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
+                  title="Download Material"
+                >
+                  <Download className="w-4.5 h-4.5" />
+                </button>
+                <button
+                  onClick={() => onDeleteClick && onDeleteClick(m)}
+                  className="p-2 text-gray-400 hover:text-red-650 hover:bg-red-50 rounded-xl transition-colors"
+                  title="Delete Material"
+                >
+                  <Trash2 className="w-4.5 h-4.5" />
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-2 text-xs border-t border-gray-50">

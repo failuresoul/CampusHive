@@ -6,9 +6,7 @@ import {
   Search, 
   SlidersHorizontal,
   FolderOpen,
-  AlertCircle,
-  Clock,
-  Info
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { courseHubService } from '../../services/courseHubService';
@@ -25,7 +23,7 @@ const StudentCourseMaterialsPage = () => {
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [infoMessage, setInfoMessage] = useState('');
+
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,9 +107,21 @@ const StudentCourseMaterialsPage = () => {
     return 0;
   });
 
-  const handleDownloadClick = (material) => {
-    setInfoMessage(`"${material.title}" download will be fully integrated in Story 6.`);
-    setTimeout(() => setInfoMessage(''), 4000);
+  const handleDownloadClick = async (material) => {
+    try {
+      setError(null);
+      await courseHubService.downloadMaterial(material.id, token, material.originalFileName);
+      setMaterials((prev) =>
+        prev.map((m) =>
+          m.id === material.id
+            ? { ...m, downloadCount: (m.downloadCount ?? 0) + 1 }
+            : m
+        )
+      );
+    } catch (err) {
+      console.error('Error downloading material:', err);
+      setError(err.response?.data?.message || 'Failed to download material.');
+    }
   };
 
   return (
@@ -159,13 +169,7 @@ const StudentCourseMaterialsPage = () => {
           </Link>
         </div>
 
-        {/* Info / Story 6 Toast */}
-        {infoMessage && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-2xl flex items-start gap-3 shadow-sm animate-fade-in">
-            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <span className="text-sm font-medium">{infoMessage}</span>
-          </div>
-        )}
+
 
         {/* Error Alert */}
         {error && (
