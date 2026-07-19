@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { courseHubService } from '../../services/courseHubService';
 import { getCourses } from '../../services/courseService';
 import MaterialsTable from '../../components/coursehub/MaterialsTable';
+import ConfirmDialog from '../../components/shared/ConfirmDialog';
 
 const ManageCourseFilesPage = () => {
   const { courseId } = useParams();
@@ -113,9 +114,37 @@ const ManageCourseFilesPage = () => {
     return 0;
   });
 
+  // Deletion States
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
   const handleDeleteClick = (material) => {
-    // Story 4 placeholder
-    alert(`Deletion will be implemented in Story 4. Selected item: "${material.title}"`);
+    setDeleteTarget(material);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setError(null);
+    try {
+      const res = await courseHubService.deleteMaterial(courseId, deleteTarget.id, token);
+      if (res && res.success) {
+        // Remove from local list
+        setMaterials((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+        setSuccessMessage(`"${deleteTarget.title}" has been successfully deleted.`);
+        setDeleteTarget(null);
+        // Auto-clear success message after 4s
+        setTimeout(() => setSuccessMessage(''), 4000);
+      } else {
+        setError(res?.message || 'Failed to delete material.');
+      }
+    } catch (err) {
+      console.error('Error deleting material:', err);
+      setError(err.response?.data?.message || 'Failed to delete material.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading && !course) {
@@ -162,6 +191,16 @@ const ManageCourseFilesPage = () => {
       {/* Main Body */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
+        {/* Success Alert */}
+        {successMessage && (
+          <div className="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+            <div className="w-5 h-5 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 flex-shrink-0 mt-0.5">
+              ✓
+            </div>
+            <span className="text-sm font-medium">{successMessage}</span>
+          </div>
+        )}
+
         {/* Error Alert */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
@@ -252,6 +291,17 @@ const ManageCourseFilesPage = () => {
           />
         )}
       </main>
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        title="Delete Course Material?"
+        message={deleteTarget ? `Are you sure you want to delete "${deleteTarget.title}"? This action cannot be undone and will permanently remove the file from course storage.` : ''}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        confirmText="Delete Material"
+        cancelText="Cancel"
+        isLoading={isDeleting}
+      />
     </div>
   );
 };
