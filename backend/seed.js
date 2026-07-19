@@ -2,16 +2,31 @@ require('dotenv').config();
 const bcrypt = require('bcrypt');
 const sequelize = require('./config/database');
 const RollNumberCounter = require('./models/RollNumberCounter');
-const { Course, User, CourseTeacher } = require('./models/associations');
+const {
+  Course,
+  User,
+  CourseTeacher,
+  Enrollment,
+  CourseMaterial,
+  LabReport,
+  Quiz,
+  QuizQuestion,
+  QuizOption,
+  StudySession,
+  StudySessionRsvp,
+  LostFoundItem,
+  LostFoundClaim,
+  MaterialBookmark
+} = require('./models/associations');
 
 const seed = async () => {
   try {
     await sequelize.authenticate();
     console.log('Connected to database.');
 
-    // Force sync to reset database (CAUTION: Drops existing tables)
+    // Force sync to reset database (Drops all existing tables)
     await sequelize.sync({ force: true });
-    console.log('Database synced.');
+    console.log('Database schema reset and synced.');
 
     const saltRounds = 10;
     const defaultPassword = await bcrypt.hash('password123', saltRounds);
@@ -33,7 +48,7 @@ const seed = async () => {
         passwordHash: teacherPassword,
         role: 'teacher',
         department: 'CSE',
-        designation: 'Lecturer',
+        designation: 'Associate Professor',
         phone: '01712345600',
       },
       {
@@ -46,7 +61,7 @@ const seed = async () => {
         batch: '2022-2023',
         phone: '01712345699',
       },
-      // Detailed teachers for search / multiselect
+      // Additional Teachers
       {
         name: 'Dr. Anisur Rahman',
         email: 'anisur.rahman@campushive.edu',
@@ -83,46 +98,44 @@ const seed = async () => {
         designation: 'Associate Professor',
         phone: '01712345604',
       },
+      // Additional Students
       {
-        name: 'Kamrul Hasan',
-        email: 'kamrul.hasan@campushive.edu',
+        name: 'Nabil Ahmed',
+        email: 'nabil@campushive.com',
         passwordHash: defaultPassword,
-        role: 'teacher',
+        role: 'student',
+        rollNumber: 'CSE-2022-001',
         department: 'CSE',
-        designation: 'Lecturer',
-        phone: '01712345605',
+        batch: '2022-2023',
+        phone: '01712345688',
       },
       {
-        name: 'Tasnim Alam',
-        email: 'tasnim.alam@campushive.edu',
+        name: 'Laila Chowdhury',
+        email: 'laila@campushive.com',
         passwordHash: defaultPassword,
-        role: 'teacher',
-        department: 'ENG',
-        designation: 'Lecturer',
-        phone: '01712345606',
+        role: 'student',
+        rollNumber: 'CSE-2022-002',
+        department: 'CSE',
+        batch: '2022-2023',
+        phone: '01712345687',
       },
       {
-        name: 'Ziaur Rahman',
-        email: 'ziaur.rahman@campushive.edu',
+        name: 'Abrar Fahim',
+        email: 'abrar@campushive.com',
         passwordHash: defaultPassword,
-        role: 'teacher',
-        department: 'BBA',
-        designation: 'Associate Professor',
-        phone: '01712345607',
-      },
-      {
-        name: 'Nusrat Jahan',
-        email: 'nusrat.jahan@campushive.edu',
-        passwordHash: defaultPassword,
-        role: 'teacher',
-        department: 'CE',
-        designation: 'Assistant Professor',
-        phone: '01712345608',
+        role: 'student',
+        rollNumber: 'EEE-2023-001',
+        department: 'EEE',
+        batch: '2023-2024',
+        phone: '01712345677',
       }
     ];
 
     const createdUsers = await User.bulkCreate(users, { returning: true });
-    console.log('Seeded Users.');
+    console.log('Seeded Users (Admins, Teachers, Students).');
+
+    // Helper functions to get IDs
+    const getUserId = (email) => createdUsers.find(u => u.email === email).id;
 
     // 2. Seed Courses
     const courses = [
@@ -157,67 +170,265 @@ const seed = async () => {
         creditHours: 3,
         batchSemester: '2023-2024',
         description: 'Fundamental laws, network theorems, and analysis of DC and AC circuits.',
-      },
-      {
-        code: 'ME-2101',
-        title: 'Fluid Mechanics',
-        department: 'ME',
-        creditHours: 3,
-        batchSemester: '2022-2023',
-        description: 'Fluid statics, dynamics, Bernoulli equation, momentum equations, and viscous flows.',
-      },
-      {
-        code: 'ENG-1101',
-        title: 'Introduction to Literature',
-        department: 'ENG',
-        creditHours: 3,
-        batchSemester: '2024-2025',
-        description: 'Analysis of key poems, plays, novels, and short stories from different literary eras.',
-      },
-      {
-        code: 'BBA-1202',
-        title: 'Principles of Marketing',
-        department: 'BBA',
-        creditHours: 3,
-        batchSemester: '2023-2024',
-        description: 'Study of marketing concepts, customer relationships, marketing environment, and strategies.',
-      },
-      {
-        code: 'CE-3101',
-        title: 'Structural Analysis',
-        department: 'CE',
-        creditHours: 4,
-        batchSemester: '2021-2022',
-        description: 'Analysis of statically determinate and indeterminate beams, trusses, and frames.',
       }
     ];
 
     const createdCourses = await Course.bulkCreate(courses, { returning: true });
-    console.log('Seeded Courses.');
+    console.log('Seeded Academic Courses.');
 
-    // 3. Seed CourseTeacher assignments
-    // Map seeded records to their generated IDs
-    const findTeacherId = (email) => createdUsers.find(u => u.email === email).id;
-    const findCourseId = (code) => createdCourses.find(c => c.code === code).id;
+    const getCourseId = (code) => createdCourses.find(c => c.code === code).id;
 
+    // 3. Seed CourseTeacher assignments (Associate 'teacher@campushive.com' directly with CSE-3106 and CSE-2203)
     const initialAssignments = [
-      { courseId: findCourseId('CSE-3106'), teacherId: findTeacherId('anisur.rahman@campushive.edu') },
-      { courseId: findCourseId('CSE-3106'), teacherId: findTeacherId('samia.akhter@campushive.edu') },
-      { courseId: findCourseId('CSE-1201'), teacherId: findTeacherId('samia.akhter@campushive.edu') },
-      { courseId: findCourseId('EEE-1101'), teacherId: findTeacherId('tanvirul.islam@campushive.edu') },
-      { courseId: findCourseId('ENG-1101'), teacherId: findTeacherId('tasnim.alam@campushive.edu') },
-      { courseId: findCourseId('BBA-1202'), teacherId: findTeacherId('ziaur.rahman@campushive.edu') },
-      { courseId: findCourseId('CE-3101'), teacherId: findTeacherId('nusrat.jahan@campushive.edu') },
+      { courseId: getCourseId('CSE-3106'), teacherId: getUserId('teacher@campushive.com') },
+      { courseId: getCourseId('CSE-2203'), teacherId: getUserId('teacher@campushive.com') },
+      { courseId: getCourseId('CSE-3106'), teacherId: getUserId('samia.akhter@campushive.edu') },
+      { courseId: getCourseId('CSE-1201'), teacherId: getUserId('samia.akhter@campushive.edu') },
+      { courseId: getCourseId('EEE-1101'), teacherId: getUserId('tanvirul.islam@campushive.edu') },
     ];
 
     await CourseTeacher.bulkCreate(initialAssignments);
-    console.log('Seeded initial course-teacher assignments.');
+    console.log('Seeded Course-Teacher Assignments.');
 
-    console.log('\nTest Credentials:');
-    console.log('-----------------');
-    createdUsers.slice(0, 3).forEach(u => {
-      console.log(`Email: ${u.email} | Password: ${u.role}123 | Role: ${u.role}`);
+    // 4. Seed Student Enrollments
+    const enrollments = [
+      // Primary student enrolled in multiple courses
+      { courseId: getCourseId('CSE-3106'), studentId: getUserId('student@campushive.com') },
+      { courseId: getCourseId('CSE-1201'), studentId: getUserId('student@campushive.com') },
+      { courseId: getCourseId('CSE-2203'), studentId: getUserId('student@campushive.com') },
+      { courseId: getCourseId('EEE-1101'), studentId: getUserId('student@campushive.com') },
+      // Other students enrolled in courses
+      { courseId: getCourseId('CSE-3106'), studentId: getUserId('nabil@campushive.com') },
+      { courseId: getCourseId('CSE-3106'), studentId: getUserId('laila@campushive.com') },
+      { courseId: getCourseId('EEE-1101'), studentId: getUserId('abrar@campushive.com') },
+    ];
+
+    await Enrollment.bulkCreate(enrollments);
+    console.log('Seeded Student Enrollments.');
+
+    // 5. Seed Course Materials (Learning materials uploaded by teacher@campushive.com)
+    const materials = [
+      {
+        courseId: getCourseId('CSE-3106'),
+        teacherId: getUserId('teacher@campushive.com'),
+        title: 'Week 1: Introduction to Software Engineering & SDLC',
+        category: 'Lecture Notes',
+        filePath: 'uploads/week1_intro.pdf',
+        originalFileName: 'week1_intro.pdf',
+        fileSize: 4200000,
+        fileType: 'pdf',
+        uploadedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
+      },
+      {
+        courseId: getCourseId('CSE-3106'),
+        teacherId: getUserId('teacher@campushive.com'),
+        title: 'Software Requirements Specification (SRS) Guidelines',
+        category: 'Assignment',
+        filePath: 'uploads/srs_guidelines.docx',
+        originalFileName: 'srs_guidelines.docx',
+        fileSize: 180000,
+        fileType: 'docx',
+        uploadedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+      },
+      {
+        courseId: getCourseId('CSE-2203'),
+        teacherId: getUserId('teacher@campushive.com'),
+        title: 'Relational Database Schema Design slides',
+        category: 'Lecture Notes',
+        filePath: 'uploads/db_relations.pdf',
+        originalFileName: 'db_relations.pdf',
+        fileSize: 5200000,
+        fileType: 'pdf',
+        uploadedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+      },
+      {
+        courseId: getCourseId('CSE-1201'),
+        teacherId: getUserId('samia.akhter@campushive.edu'),
+        title: 'Week 1: Array Operations and Time Complexity',
+        category: 'Lecture Notes',
+        filePath: 'uploads/week1_arrays.pdf',
+        originalFileName: 'week1_arrays.pdf',
+        fileSize: 3100000,
+        fileType: 'pdf',
+        uploadedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
+      }
+    ];
+
+    const seededMaterials = await CourseMaterial.bulkCreate(materials, { returning: true });
+    console.log('Seeded Course Learning Materials.');
+
+    // Bookmark some files for student@campushive.com
+    await MaterialBookmark.create({
+      studentId: getUserId('student@campushive.com'),
+      materialId: seededMaterials[0].id,
     });
+    console.log('Seeded Student Bookmarks.');
+
+    // 6. Seed Student Lab Reports (LabTrack submissions)
+    const reports = [
+      {
+        studentId: getUserId('student@campushive.com'),
+        courseId: getCourseId('CSE-3106'),
+        title: 'Lab Report 1: SRS Submission',
+        description: 'Complete Software Requirements Specification document for the CampusHive project.',
+        filePath: 'uploads/student-srs-v1.pdf',
+        originalFileName: 'student-srs-v1.pdf',
+        fileSize: 1045000,
+        submittedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        status: 'graded',
+        grade: 'A',
+        feedback: 'Excellent work. Detail description and UML diagrams are well constructed.'
+      },
+      {
+        studentId: getUserId('nabil@campushive.com'),
+        courseId: getCourseId('CSE-3106'),
+        title: 'Lab Report 1: SRS Draft',
+        description: 'UML class diagrams and requirement matrix.',
+        filePath: 'uploads/nabil-srs.pdf',
+        originalFileName: 'nabil-srs.pdf',
+        fileSize: 720000,
+        submittedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        status: 'submitted',
+      },
+      {
+        studentId: getUserId('student@campushive.com'),
+        courseId: getCourseId('CSE-2203'),
+        title: 'Lab 1: SQL queries and joins report',
+        description: 'Implementation of primary/foreign keys and subqueries.',
+        filePath: 'uploads/db_joins.pdf',
+        originalFileName: 'db_joins.pdf',
+        fileSize: 610000,
+        submittedAt: new Date(),
+        status: 'submitted',
+      },
+      {
+        studentId: getUserId('student@campushive.com'),
+        courseId: getCourseId('CSE-1201'),
+        title: 'Lab 2: Binary Search Tree Implementation',
+        description: 'Implemented standard recursive BST insertions and traversals in C++.',
+        filePath: 'uploads/bst_cpp.pdf',
+        originalFileName: 'bst_cpp.pdf',
+        fileSize: 852000,
+        submittedAt: new Date(),
+        status: 'submitted',
+      }
+    ];
+
+    await LabReport.bulkCreate(reports);
+    console.log('Seeded Lab Report Submissions.');
+
+    // 7. Seed Quizzes created by teacher@campushive.com
+    const activeQuiz = await Quiz.create({
+      courseId: getCourseId('CSE-3106'),
+      teacherId: getUserId('teacher@campushive.com'),
+      title: 'Scrum & Agile Development Quiz',
+      timeLimitPerQuestion: 20,
+      status: 'launched'
+    });
+
+    const quizQuestion = await QuizQuestion.create({
+      quizId: activeQuiz.id,
+      questionText: 'Which Scrum event is held daily to synchronize activities and plan for the next 24 hours?',
+      order: 1
+    });
+
+    await QuizOption.bulkCreate([
+      { questionId: quizQuestion.id, optionText: 'Sprint Review', isCorrect: false },
+      { questionId: quizQuestion.id, optionText: 'Daily Scrum', isCorrect: true },
+      { questionId: quizQuestion.id, optionText: 'Sprint Retrospective', isCorrect: false },
+      { questionId: quizQuestion.id, optionText: 'Sprint Planning', isCorrect: false }
+    ]);
+
+    await Quiz.create({
+      courseId: getCourseId('CSE-3106'),
+      teacherId: getUserId('teacher@campushive.com'),
+      title: 'Software Architecture Concepts',
+      timeLimitPerQuestion: 30,
+      status: 'closed'
+    });
+
+    await Quiz.create({
+      courseId: getCourseId('CSE-2203'),
+      teacherId: getUserId('teacher@campushive.com'),
+      title: 'Entity-Relationship Diagrams Quiz',
+      timeLimitPerQuestion: 25,
+      status: 'draft'
+    });
+    console.log('Seeded Quizzes, Questions, and Options.');
+
+    // 8. Seed Study Sessions
+    const session1 = await StudySession.create({
+      creatorId: getUserId('student@campushive.com'),
+      courseId: getCourseId('CSE-3106'),
+      title: 'Design Patterns & UML Diagrams Review',
+      description: 'Let us sit together to review MVC, Singleton, and Factory patterns for the upcoming midterm.',
+      location: 'CSE Building Room 402',
+      sessionDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+      maxParticipants: 6
+    });
+
+    const session2 = await StudySession.create({
+      creatorId: getUserId('nabil@campushive.com'),
+      courseId: getCourseId('CSE-1201'),
+      title: 'Red-Black Trees Traversals Bootcamp',
+      description: 'Solving complex insertions and rotations on trees.',
+      location: 'Central Library Ground Floor',
+      sessionDateTime: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000), // tomorrow
+      maxParticipants: 4
+    });
+
+    // RSVPs
+    await StudySessionRsvp.create({ sessionId: session1.id, studentId: getUserId('nabil@campushive.com') });
+    await StudySessionRsvp.create({ sessionId: session1.id, studentId: getUserId('laila@campushive.com') });
+    await StudySessionRsvp.create({ sessionId: session2.id, studentId: getUserId('student@campushive.com') });
+    console.log('Seeded Student Study Sessions & RSVPs.');
+
+    // 9. Seed Lost & Found Items
+    const lostItem = await LostFoundItem.create({
+      reporterId: getUserId('nabil@campushive.com'),
+      type: 'lost',
+      title: 'Black HP USB-C Laptop Charger',
+      description: 'Left it plugged in next to the white board in CSE Lab 3 on Sunday afternoon. Please return if found.',
+      category: 'Electronics',
+      location: 'CSE Lab 3, 3rd Floor',
+      itemDate: '2026-07-18',
+      status: 'open'
+    });
+
+    const foundItem = await LostFoundItem.create({
+      reporterId: getUserId('laila@campushive.com'),
+      type: 'found',
+      title: 'Keys with Pikachu Keychain',
+      description: 'Found a bunch of keys on the cafeteria table during lunch. Claim item below to coordinate return.',
+      category: 'Keys/Accessories',
+      location: 'Main Cafeteria, North Wing',
+      itemDate: '2026-07-19',
+      status: 'open'
+    });
+
+    // Claims
+    await LostFoundClaim.create({
+      itemId: foundItem.id,
+      claimantId: getUserId('student@campushive.com'),
+      message: 'I lost my keys with a Pikachu keychain there yesterday! I can describe the rest of the keys to verify.',
+      status: 'pending'
+    });
+    console.log('Seeded Lost & Found Items and Claim Requests.');
+
+    // Initialize RollNumberCounter for generator
+    await RollNumberCounter.findOrCreate({
+      where: { department: 'CSE', batch: '2022-2023' },
+      defaults: { lastSequence: 2 }
+    });
+
+    console.log('\n======================================================');
+    console.log('Database Seeding Completed Successfully!');
+    console.log('======================================================');
+    console.log('Test Credentials:');
+    console.log('  Admin   -> Email: admin@campushive.com   | Pass: admin123');
+    console.log('  Teacher -> Email: teacher@campushive.com | Pass: teacher123');
+    console.log('  Student -> Email: student@campushive.com | Pass: student123');
+    console.log('======================================================\n');
 
     process.exit(0);
   } catch (error) {
