@@ -135,3 +135,50 @@ exports.getTeacherQuizzes = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to fetch quizzes.' });
   }
 };
+
+exports.getQuizDetails = async (req, res) => {
+  const { courseId, quizId } = req.params;
+  const teacherId = req.user.id;
+
+  try {
+    // Verify course teacher mapping
+    const courseTeacher = await CourseTeacher.findOne({
+      where: { courseId, teacherId }
+    });
+
+    if (!courseTeacher) {
+      return res.status(403).json({ success: false, message: 'You are not assigned to this course.' });
+    }
+
+    const quiz = await Quiz.findOne({
+      where: { id: quizId, courseId, teacherId },
+      include: [
+        {
+          model: QuizQuestion,
+          as: 'questions',
+          attributes: ['id'] // We only need the count for now
+        }
+      ]
+    });
+
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found.' });
+    }
+
+    // Return title, time limit, and question count
+    res.json({
+      success: true,
+      data: {
+        id: quiz.id,
+        title: quiz.title,
+        timeLimitPerQuestion: quiz.timeLimitPerQuestion,
+        status: quiz.status,
+        questionCount: quiz.questions ? quiz.questions.length : 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching quiz details:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch quiz details.' });
+  }
+};

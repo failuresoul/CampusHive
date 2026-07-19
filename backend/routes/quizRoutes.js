@@ -22,4 +22,13 @@ router.get(
   quizController.getTeacherQuizzes
 );
 
+// GET /api/courses/:courseId/quizzes/:quizId
+// Get details of a specific quiz for launch UI
+router.get(
+  '/:quizId',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+  quizController.getQuizDetails
+);
+
 module.exports = router;

@@ -40,3 +40,22 @@ export const getTeacherQuizzes = async (courseId, token) => {
     throw new Error('An unexpected error occurred while fetching quizzes.');
   }
 };
+
+export const getQuizDetails = async (courseId, quizId, token) => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/courses/${courseId}/quizzes/${quizId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      throw error.response.data;
+    }
+    throw new Error('An unexpected error occurred while fetching quiz details.');
+  }
+};
