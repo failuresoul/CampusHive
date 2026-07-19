@@ -19,12 +19,9 @@ import CourseListPage from './pages/admin/CourseListPage';
 import AssignTeacherPage from './pages/admin/AssignTeacherPage';
 import AutoEnrollPage from './pages/admin/AutoEnrollPage';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
-<<<<<<< HEAD
 import PostStudySessionPage from './pages/student/PostStudySessionPage';
 import BrowseStudySessionsPage from './pages/student/BrowseStudySessionsPage';
 import StudySessionDetailPage from './pages/student/StudySessionDetailPage';
-=======
->>>>>>> 217132a116b6bfa4c009d8db50d3e42323102271
 import LabReportUploadPage from './pages/student/LabReportUploadPage';
 import SubmissionHistoryPage from './pages/student/SubmissionHistoryPage';
 import SubmissionDetailPage from './pages/student/SubmissionDetailPage';
@@ -244,7 +241,6 @@ function App() {
               }
             />
             <Route
-<<<<<<< HEAD
               path="/student/study-sessions/create"
               element={
                 <ProtectedRoute allowedRoles={['student']}>
@@ -269,8 +265,6 @@ function App() {
               }
             />
             <Route
-=======
->>>>>>> 217132a116b6bfa4c009d8db50d3e42323102271
               path="/student/courses/:courseId/labtrack"
               element={<Navigate to="history" replace />}
             />
