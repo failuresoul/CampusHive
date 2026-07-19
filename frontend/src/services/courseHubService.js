@@ -29,4 +29,23 @@ export const courseHubService = {
     });
     return response.data;
   },
+
+  /**
+   * getMaterials
+   * Fetches learning materials for a course with optional filters.
+   *
+   * @param {string} courseId - ID of the course
+   * @param {Object} params - { category, search }
+   * @param {string} token - JWT bearer token
+   * @returns {Promise<Object>} Response containing materials list
+   */
+  getMaterials: async (courseId, params, token) => {
+    const response = await axios.get(`${API_URL}/${courseId}/materials`, {
+      params,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  },
 };

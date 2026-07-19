@@ -192,4 +192,13 @@ router.post(
   courseController.uploadMaterials
 );
 
+// GET /api/courses/:courseId/materials
+// Retrieve course materials (teacher only)
+router.get(
+  '/:courseId/materials',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+  courseController.getMaterials
+);
+
 module.exports = router;
