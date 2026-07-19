@@ -115,6 +115,21 @@ module.exports = (io) => {
     // ==========================================
     // Student Events
     // ==========================================
+    socket.on('student-subscribe-courses', async ({ studentId }) => {
+      try {
+        const enrollments = await Enrollment.findAll({
+          where: { studentId }
+        });
+        
+        enrollments.forEach(enrollment => {
+          socket.join(`course_${enrollment.courseId}`);
+        });
+        console.log(`Student ${studentId} subscribed to ${enrollments.length} courses.`);
+      } catch (err) {
+        console.error('Error subscribing to courses:', err);
+      }
+    });
+
     socket.on('join-quiz', async ({ sessionId, studentId, courseId }) => {
       try {
         // Validate enrollment

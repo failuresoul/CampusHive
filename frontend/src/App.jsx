@@ -29,6 +29,9 @@ import QuizLaunchPage from './pages/teacher/QuizLaunchPage';
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
+// Global Components
+import QuizLiveBanner from './components/student/QuizLiveBanner';
+
 
 /**
  * PublicRoute
@@ -57,6 +60,7 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <div className="App">
+          <QuizLiveBanner />
           <Routes>
             {/* Root */}
             <Route
