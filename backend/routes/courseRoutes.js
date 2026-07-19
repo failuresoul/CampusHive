@@ -193,12 +193,21 @@ router.post(
 );
 
 // GET /api/courses/:courseId/materials
-// Retrieve course materials (teacher only)
+// Retrieve course materials (teacher and student)
 router.get(
   '/:courseId/materials',
   authMiddleware,
-  roleMiddleware(['teacher']),
+  roleMiddleware(['teacher', 'student']),
   courseController.getMaterials
+);
+
+// DELETE /api/courses/:courseId/materials/:materialId
+// Delete a course material (teacher only)
+router.delete(
+  '/:courseId/materials/:materialId',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+  courseController.deleteMaterial
 );
 
 module.exports = router;

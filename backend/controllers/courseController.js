@@ -836,7 +836,6 @@ const uploadMaterials = async (req, res) => {
 const getMaterials = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const teacherId = req.user.id;
     const { category, search } = req.query;
 
     // 1. Verify course exists
@@ -848,14 +847,31 @@ const getMaterials = async (req, res) => {
       });
     }
 
-    // 2. Verify logged-in teacher is assigned to the course
-    const assignment = await CourseTeacher.findOne({
-      where: { courseId, teacherId },
-    });
-    if (!assignment) {
+    // 2. Verify authorization based on user role (teachers must be assigned, students must be enrolled)
+    if (req.user.role === 'teacher') {
+      const assignment = await CourseTeacher.findOne({
+        where: { courseId, teacherId: req.user.id },
+      });
+      if (!assignment) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not assigned to this course.',
+        });
+      }
+    } else if (req.user.role === 'student') {
+      const enrollment = await Enrollment.findOne({
+        where: { courseId, studentId: req.user.id },
+      });
+      if (!enrollment) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not enrolled in this course.',
+        });
+      }
+    } else {
       return res.status(403).json({
         success: false,
-        message: 'Forbidden: You are not assigned to this course.',
+        message: 'Forbidden: Invalid role context.',
       });
     }
 
@@ -898,6 +914,77 @@ const getMaterials = async (req, res) => {
   }
 };
 
+/**
+ * DELETE /api/courses/:courseId/materials/:materialId
+ * Delete course material (file on disk and DB record).
+ * Protected by auth + teacher role verification and course assignment.
+ */
+const deleteMaterial = async (req, res) => {
+  try {
+    const { courseId, materialId } = req.params;
+    const teacherId = req.user.id;
+
+    // 1. Verify course exists
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found.',
+      });
+    }
+
+    // 2. Verify logged-in teacher is assigned to the course (co-teacher deletion allowed)
+    const assignment = await CourseTeacher.findOne({
+      where: { courseId, teacherId },
+    });
+    if (!assignment) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not assigned to this course.',
+      });
+    }
+
+    // 3. Find the course material
+    const material = await CourseMaterial.findOne({
+      where: { id: materialId, courseId },
+    });
+    if (!material) {
+      return res.status(404).json({
+        success: false,
+        message: 'Material not found or does not belong to this course.',
+      });
+    }
+
+    // 4. Remove file from disk
+    if (material.filePath) {
+      const absolutePath = path.resolve(material.filePath);
+      if (fs.existsSync(absolutePath)) {
+        try {
+          fs.unlinkSync(absolutePath);
+        } catch (err) {
+          console.error(`Failed to delete file from disk at ${absolutePath}:`, err);
+        }
+      } else {
+        console.warn(`File not found on disk at ${absolutePath}, skipping disk deletion.`);
+      }
+    }
+
+    // 5. Delete DB record
+    await material.destroy();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Material deleted successfully.',
+    });
+  } catch (error) {
+    console.error('Error in deleteMaterial controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while deleting course material.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
@@ -912,4 +999,5 @@ module.exports = {
   getLabReportDetail,
   uploadMaterials,
   getMaterials,
+  deleteMaterial,
 };

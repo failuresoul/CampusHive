@@ -3,19 +3,19 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   BookOpen, 
-  Upload, 
   Search, 
   SlidersHorizontal,
   FolderOpen,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  Info
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { courseHubService } from '../../services/courseHubService';
-import { getCourses } from '../../services/courseService';
-import MaterialsTable from '../../components/coursehub/MaterialsTable';
-import ConfirmDialog from '../../components/shared/ConfirmDialog';
+import { getMyCourses } from '../../services/studentService';
+import MaterialCard from '../../components/coursehub/MaterialCard';
 
-const ManageCourseFilesPage = () => {
+const StudentCourseMaterialsPage = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { token } = useAuth();
@@ -25,6 +25,7 @@ const ManageCourseFilesPage = () => {
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [infoMessage, setInfoMessage] = useState('');
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,7 +45,7 @@ const ManageCourseFilesPage = () => {
   useEffect(() => {
     const fetchCourseDetails = async () => {
       try {
-        const coursesList = await getCourses('', token);
+        const coursesList = await getMyCourses(token);
         const matched = coursesList.find(c => c.id.toString() === courseId.toString());
         if (matched) {
           setCourse(matched);
@@ -102,58 +103,16 @@ const ManageCourseFilesPage = () => {
     if (sortBy === 'newest') {
       return new Date(b.uploadedAt) - new Date(a.uploadedAt);
     }
-    if (sortBy === 'oldest') {
-      return new Date(a.uploadedAt) - new Date(b.uploadedAt);
-    }
-    if (sortBy === 'title') {
-      return a.title.localeCompare(b.title);
-    }
-    if (sortBy === 'downloads') {
-      return (b.downloadCount ?? 0) - (a.downloadCount ?? 0);
+    if (sortBy === 'category') {
+      return (a.category || '').localeCompare(b.category || '');
     }
     return 0;
   });
 
-  // Deletion States
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-
-  const handleDeleteClick = (material) => {
-    setDeleteTarget(material);
+  const handleDownloadClick = (material) => {
+    setInfoMessage(`"${material.title}" download will be fully integrated in Story 6.`);
+    setTimeout(() => setInfoMessage(''), 4000);
   };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-    setIsDeleting(true);
-    setError(null);
-    try {
-      const res = await courseHubService.deleteMaterial(courseId, deleteTarget.id, token);
-      if (res && res.success) {
-        // Remove from local list
-        setMaterials((prev) => prev.filter((m) => m.id !== deleteTarget.id));
-        setSuccessMessage(`"${deleteTarget.title}" has been successfully deleted.`);
-        setDeleteTarget(null);
-        // Auto-clear success message after 4s
-        setTimeout(() => setSuccessMessage(''), 4000);
-      } else {
-        setError(res?.message || 'Failed to delete material.');
-      }
-    } catch (err) {
-      console.error('Error deleting material:', err);
-      setError(err.response?.data?.message || 'Failed to delete material.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  if (isLoading && !course) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -162,42 +121,49 @@ const ManageCourseFilesPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => navigate('/teacher/dashboard')}
+              onClick={() => navigate('/student/courses')}
               className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-600"
-              aria-label="Go to Dashboard"
+              aria-label="Go to My Courses"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex-1">
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-0.5">
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 uppercase tracking-wider mb-0.5">
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>{course?.code || 'Course'} • {course?.title || 'Learning Materials'}</span>
+                <span>{course?.code || 'Course'} • {course?.title || 'Enrolled Course'}</span>
               </div>
               <h1 className="text-xl font-bold text-gray-900 leading-tight">
-                Manage Course Materials
+                Course Materials Hub
               </h1>
             </div>
           </div>
-          <Link
-            to={`/teacher/courses/${courseId}/materials/upload`}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-md shadow-emerald-600/10"
-          >
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Upload Materials</span>
-          </Link>
         </div>
       </header>
 
       {/* Main Body */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Success Alert */}
-        {successMessage && (
-          <div className="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
-            <div className="w-5 h-5 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 flex-shrink-0 mt-0.5">
-              ✓
-            </div>
-            <span className="text-sm font-medium">{successMessage}</span>
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-gray-200 mb-6">
+          <Link
+            to={`/student/courses/${courseId}/labtrack/history`}
+            className="px-4 py-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition-all"
+          >
+            Lab Assignments
+          </Link>
+          <Link
+            to={`/student/courses/${courseId}/materials`}
+            className="px-4 py-2.5 border-b-2 border-amber-500 text-amber-600 font-semibold text-sm transition-all"
+          >
+            Course Materials
+          </Link>
+        </div>
+
+        {/* Info / Story 6 Toast */}
+        {infoMessage && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-2xl flex items-start gap-3 shadow-sm animate-fade-in">
+            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <span className="text-sm font-medium">{infoMessage}</span>
           </div>
         )}
 
@@ -215,10 +181,10 @@ const ManageCourseFilesPage = () => {
             <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search materials by title..."
+              placeholder="Search learning materials by title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-150 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium placeholder-gray-400"
+              className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-150 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium placeholder-gray-400"
             />
           </div>
 
@@ -228,7 +194,7 @@ const ManageCourseFilesPage = () => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full sm:w-48 pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-150 rounded-xl text-sm font-semibold text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
+                className="w-full sm:w-48 pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-150 rounded-xl text-sm font-semibold text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all cursor-pointer"
               >
                 <option value="">All Categories</option>
                 <option value="Lecture Notes">Lecture Notes</option>
@@ -244,66 +210,56 @@ const ManageCourseFilesPage = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full sm:w-48 pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-150 rounded-xl text-sm font-semibold text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
+                className="w-full sm:w-48 pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-150 rounded-xl text-sm font-semibold text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all cursor-pointer"
               >
                 <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="title">Title A-Z</option>
-                <option value="downloads">Most Downloaded</option>
+                <option value="category">Category</option>
               </select>
               <SlidersHorizontal className="w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
         </div>
 
-        {/* Loading State */}
+        {/* Grid/List Content */}
         {isLoading ? (
-          <div className="space-y-4">
-            <div className="h-12 bg-gray-200/60 rounded-xl animate-pulse"></div>
-            <div className="h-16 bg-gray-200/60 rounded-2xl animate-pulse"></div>
-            <div className="h-16 bg-gray-200/60 rounded-2xl animate-pulse"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="bg-white rounded-3xl border border-gray-100 p-6 animate-pulse flex flex-col h-64">
+                <div className="w-12 h-12 bg-gray-200/60 rounded-2xl mb-4"></div>
+                <div className="w-1/3 h-4 bg-gray-200/60 rounded-md mb-2"></div>
+                <div className="w-3/4 h-5 bg-gray-200/60 rounded-md mb-2"></div>
+                <div className="w-full h-12 bg-gray-100/60 rounded-md mt-auto"></div>
+              </div>
+            ))}
           </div>
         ) : sortedMaterials.length === 0 ? (
           /* Empty State */
-          <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center max-w-xl mx-auto shadow-sm mt-8">
-            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-              <FolderOpen className="w-8 h-8 text-emerald-600" />
+          <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center max-w-xl mx-auto shadow-sm mt-8 animate-fade-in">
+            <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <FolderOpen className="w-8 h-8 text-amber-600" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">No learning materials found</h3>
-            <p className="text-gray-500 text-sm mb-8 max-w-sm mx-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">No materials available yet</h3>
+            <p className="text-gray-500 text-sm mb-4 max-w-sm mx-auto">
               {searchQuery || selectedCategory 
                 ? "No materials match your current search queries or filters. Try resetting them."
-                : "No learning materials have been uploaded for this course yet. Start sharing slides, assignments, and notes with your students."}
+                : "No learning materials have been uploaded for this course yet."}
             </p>
-            <Link
-              to={`/teacher/courses/${courseId}/materials/upload`}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all shadow-md shadow-emerald-600/10"
-            >
-              <Upload className="w-4 h-4" />
-              Upload First Material
-            </Link>
           </div>
         ) : (
-          /* Real Data Table */
-          <MaterialsTable 
-            materials={sortedMaterials} 
-            onDeleteClick={handleDeleteClick} 
-          />
+          /* Card Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+            {sortedMaterials.map((material) => (
+              <MaterialCard 
+                key={material.id} 
+                material={material} 
+                onDownloadClick={handleDownloadClick} 
+              />
+            ))}
+          </div>
         )}
       </main>
-
-      <ConfirmDialog
-        isOpen={!!deleteTarget}
-        title="Delete Course Material?"
-        message={deleteTarget ? `Are you sure you want to delete "${deleteTarget.title}"? This action cannot be undone and will permanently remove the file from course storage.` : ''}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-        confirmText="Delete Material"
-        cancelText="Cancel"
-        isLoading={isDeleting}
-      />
     </div>
   );
 };
 
-export default ManageCourseFilesPage;
+export default StudentCourseMaterialsPage;

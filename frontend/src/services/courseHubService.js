@@ -48,4 +48,22 @@ export const courseHubService = {
     });
     return response.data;
   },
+
+  /**
+   * deleteMaterial
+   * Deletes a learning material by ID.
+   *
+   * @param {string} courseId - ID of the course
+   * @param {string} materialId - ID of the material
+   * @param {string} token - JWT bearer token
+   * @returns {Promise<Object>} Response data
+   */
+  deleteMaterial: async (courseId, materialId, token) => {
+    const response = await axios.delete(`${API_URL}/${courseId}/materials/${materialId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  },
 };
