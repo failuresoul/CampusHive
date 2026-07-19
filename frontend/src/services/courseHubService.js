@@ -92,4 +92,43 @@ export const courseHubService = {
     link.remove();
     window.URL.revokeObjectURL(url);
   },
+
+  /**
+   * toggleBookmark
+   * Bookmarks or unbookmarks a material for a student.
+   *
+   * @param {string} materialId - ID of the material
+   * @param {boolean} isBookmarked - Desired bookmarked state (true to bookmark, false to unbookmark)
+   * @param {string} token - JWT bearer token
+   * @returns {Promise<Object>} Response data
+   */
+  toggleBookmark: async (materialId, isBookmarked, token) => {
+    const url = `http://localhost:5000/api/materials/${materialId}/bookmark`;
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+    };
+    if (isBookmarked) {
+      const response = await axios.post(url, {}, { headers });
+      return response.data;
+    } else {
+      const response = await axios.delete(url, { headers });
+      return response.data;
+    }
+  },
+
+  /**
+   * getMyBookmarks
+   * Fetches all bookmarked materials for the current student.
+   *
+   * @param {string} token - JWT bearer token
+   * @returns {Promise<Object>} Response data containing materials list
+   */
+  getMyBookmarks: async (token) => {
+    const response = await axios.get('http://localhost:5000/api/students/me/bookmarks', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    return response.data;
+  },
 };

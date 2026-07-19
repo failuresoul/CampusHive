@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, X, Clock, CheckCheck, Inbox, Loader2 } from 'lucide-react';
+import { Bell, Clock, CheckCheck, Inbox, Loader2 } from 'lucide-react';
 import { notificationService } from '../../services/notificationService';
 
 /**

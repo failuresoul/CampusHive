@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import dashboardService from '../../services/dashboardService';
 import {
   ShieldCheck,
   Users,
@@ -27,8 +28,25 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
 );
 
 const AdminDashboard = () => {
-  const { user, logoutContext } = useAuth();
+  const { user, token, logoutContext } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState({ totalUsers: '—', activeCourses: '—', reportsCount: '—' });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await dashboardService.getAdminStats(token);
+        if (res.success) {
+          setStats(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to load admin stats:', err);
+      }
+    };
+    if (token) {
+      fetchStats();
+    }
+  }, [token]);
 
   const handleLogout = () => {
     logoutContext();
@@ -81,9 +99,9 @@ const AdminDashboard = () => {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
-          <StatCard icon={Users} label="Total Users" value="—" color="bg-indigo-500" />
-          <StatCard icon={BookOpen} label="Active Courses" value="—" color="bg-purple-500" />
-          <StatCard icon={BarChart3} label="Reports" value="—" color="bg-sky-500" />
+          <StatCard icon={Users} label="Total Users" value={stats.totalUsers} color="bg-indigo-500" />
+          <StatCard icon={BookOpen} label="Active Courses" value={stats.activeCourses} color="bg-purple-500" />
+          <StatCard icon={BarChart3} label="Reports" value={stats.reportsCount} color="bg-sky-500" />
         </div>
 
         {/* Quick Actions */}

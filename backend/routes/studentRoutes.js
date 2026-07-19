@@ -14,6 +14,15 @@ router.get(
   studentController.getMyCourses
 );
 
+// GET /api/students/me/bookmarks
+// Get bookmarked materials for the logged-in student
+router.get(
+  '/me/bookmarks',
+  authMiddleware,
+  roleMiddleware(['student']),
+  studentController.getBookmarks
+);
+
 // GET /api/students
 // Paginated, filterable, sortable student list (admin only)
 router.get(

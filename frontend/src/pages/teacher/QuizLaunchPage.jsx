@@ -98,7 +98,7 @@ const QuizLaunchPage = () => {
       socket.off('quiz-ended');
       socket.off('leaderboard-update');
     };
-  }, [socket]);
+  }, [socket, quizId, token]);
 
   // Authority teacher-side countdown ticker
   useEffect(() => {

@@ -4,6 +4,7 @@ const Course = require('../models/Course');
 const sequelize = require('../config/database');
 const { Transaction, Op, fn, col } = require('sequelize');
 const bcrypt = require('bcrypt');
+const { MaterialBookmark, CourseMaterial } = require('../models/associations');
 
 // ── Allowed values (whitelist to prevent SQL injection via query params) ───────
 
@@ -418,10 +419,58 @@ const getMyCourses = async (req, res) => {
   }
 };
 
+const getBookmarks = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+
+    const bookmarks = await MaterialBookmark.findAll({
+      where: { studentId },
+      include: [
+        {
+          model: CourseMaterial,
+          as: 'material',
+          include: [
+            {
+              model: User,
+              as: 'teacher',
+              attributes: ['id', 'name', 'email'],
+            },
+            {
+              model: Course,
+              as: 'course',
+              attributes: ['id', 'code', 'title'],
+            },
+          ],
+        },
+      ],
+      order: [['bookmarkedAt', 'DESC']],
+    });
+
+    const materials = bookmarks.map((b) => {
+      if (!b.material) return null;
+      const plain = b.material.toJSON();
+      plain.isBookmarked = true;
+      return plain;
+    }).filter(Boolean);
+
+    return res.status(200).json({
+      success: true,
+      data: materials,
+    });
+  } catch (error) {
+    console.error('Error in getBookmarks controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching bookmarked materials.',
+    });
+  }
+};
+
 module.exports = {
   getStudents,
   generateRollNumber,
   previewRollNumber,
   bulkImport,
   getMyCourses,
+  getBookmarks,
 };

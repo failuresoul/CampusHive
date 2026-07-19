@@ -3,20 +3,33 @@ import {
   Eye,
   UserX,
   UserCheck,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { DEPARTMENT_LABELS } from '../../mocks/students.mock';
 
 // ── Column config ─────────────────────────────────────────────────────────────
 
 const COLUMNS = [
-  { key: 'name',       label: 'Name',        minWidth: 'min-w-[150px]' },
-  { key: 'email',      label: 'Email',       minWidth: 'min-w-[200px]' },
-  { key: 'department', label: 'Department',  minWidth: 'min-w-[160px]' },
-  { key: 'designation',label: 'Designation', minWidth: 'min-w-[150px]' },
-  { key: 'phone',      label: 'Phone',       minWidth: 'min-w-[130px]' },
-  { key: 'status',     label: 'Status',      minWidth: 'min-w-[90px]'  },
-  { key: 'actions',    label: 'Actions',     minWidth: 'min-w-[120px]' },
+  { key: 'name',       label: 'Name',        sortable: true,  minWidth: 'min-w-[150px]' },
+  { key: 'email',      label: 'Email',       sortable: false, minWidth: 'min-w-[200px]' },
+  { key: 'department', label: 'Department',  sortable: true,  minWidth: 'min-w-[160px]' },
+  { key: 'designation',label: 'Designation', sortable: true,  minWidth: 'min-w-[150px]' },
+  { key: 'phone',      label: 'Phone',       sortable: false, minWidth: 'min-w-[130px]' },
+  { key: 'status',     label: 'Status',      sortable: false, minWidth: 'min-w-[90px]'  },
+  { key: 'actions',    label: 'Actions',     sortable: false, minWidth: 'min-w-[120px]' },
 ];
+
+const SortIcon = ({ columnKey, sortKey, sortDir }) => {
+  if (columnKey !== sortKey)
+    return <ChevronsUpDown className="h-3.5 w-3.5 text-gray-300 ml-1 flex-shrink-0" />;
+  return sortDir === 'asc' ? (
+    <ChevronUp className="h-3.5 w-3.5 text-indigo-500 ml-1 flex-shrink-0" />
+  ) : (
+    <ChevronDown className="h-3.5 w-3.5 text-indigo-500 ml-1 flex-shrink-0" />
+  );
+};
 
 // ── Skeleton row ──────────────────────────────────────────────────────────────
 
@@ -87,7 +100,7 @@ const StatusBadge = ({ status }) => (
  *   isLoading  – show skeleton rows
  *   hasFilters – true when any filter/search is active (affects empty-state copy)
  */
-const TeacherTable = ({ teachers, isLoading, hasFilters }) => {
+const TeacherTable = ({ teachers, isLoading, sortKey, sortDir, onSort, hasFilters }) => {
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
       <table className="w-full border-collapse text-sm" aria-label="Teacher list">
@@ -97,9 +110,32 @@ const TeacherTable = ({ teachers, isLoading, hasFilters }) => {
               <th
                 key={col.key}
                 scope="col"
-                className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${col.minWidth}`}
+                className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${col.minWidth} ${
+                  col.sortable
+                    ? 'cursor-pointer select-none hover:bg-gray-100 hover:text-indigo-700 transition-colors group'
+                    : ''
+                }`}
+                onClick={col.sortable ? () => onSort(col.key) : undefined}
+                aria-sort={
+                  col.sortable && col.key === sortKey
+                    ? sortDir === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : col.sortable
+                    ? 'none'
+                    : undefined
+                }
               >
-                {col.label}
+                <span className="flex items-center">
+                  {col.label}
+                  {col.sortable && (
+                    <SortIcon
+                      columnKey={col.key}
+                      sortKey={sortKey}
+                      sortDir={sortDir}
+                    />
+                  )}
+                </span>
               </th>
             ))}
           </tr>

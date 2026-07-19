@@ -124,6 +124,25 @@ const StudentCourseMaterialsPage = () => {
     }
   };
 
+  const handleBookmarkToggle = async (material, newStatus) => {
+    try {
+      setError(null);
+      await courseHubService.toggleBookmark(material.id, newStatus, token);
+      setMaterials((prev) =>
+        prev.map((m) =>
+          m.id === material.id
+            ? { ...m, isBookmarked: newStatus }
+            : m
+        )
+      );
+      return true;
+    } catch (err) {
+      console.error('Error toggling bookmark:', err);
+      setError(err.response?.data?.message || 'Failed to update bookmark.');
+      return false;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Page Header */}
@@ -257,6 +276,7 @@ const StudentCourseMaterialsPage = () => {
                 key={material.id} 
                 material={material} 
                 onDownloadClick={handleDownloadClick} 
+                onBookmarkToggle={handleBookmarkToggle}
               />
             ))}
           </div>

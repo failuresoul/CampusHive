@@ -35,6 +35,7 @@ import TeacherQuizAnalyticsPage from './pages/teacher/TeacherQuizAnalyticsPage';
 import CourseFileUploadPage from './pages/teacher/CourseFileUploadPage';
 import ManageCourseFilesPage from './pages/teacher/ManageCourseFilesPage';
 import StudentCourseMaterialsPage from './pages/student/StudentCourseMaterialsPage';
+import StudentBookmarksPage from './pages/student/StudentBookmarksPage';
 import PostLostFoundItemPage from './pages/shared/PostLostFoundItemPage';
 import BrowseLostFoundPage from './pages/shared/BrowseLostFoundPage';
 import LostFoundDetailPage from './pages/shared/LostFoundDetailPage';
@@ -318,6 +319,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <StudentCourseMaterialsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/bookmarks"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <StudentBookmarksPage />
                 </ProtectedRoute>
               }
             />

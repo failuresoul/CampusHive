@@ -1,5 +1,5 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   BookMarked,
@@ -7,9 +7,10 @@ import {
   ClipboardCheck,
   Calendar,
   LogOut,
+  Bookmark,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import StudentNotificationBell from '../../components/student/NotificationBell';
+import dashboardService from '../../services/dashboardService';
 
 const StatCard = ({ icon: Icon, label, value, color, to }) => {
   const content = (
@@ -42,8 +43,30 @@ const StatCard = ({ icon: Icon, label, value, color, to }) => {
 };
 
 const StudentDashboard = () => {
-  const { user, logoutContext } = useAuth();
+  const { user, token, logoutContext } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    enrolledCount: '—',
+    gpa: '—',
+    assignmentsDue: '—',
+    examsCount: '—',
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await dashboardService.getStudentStats(token);
+        if (res.success) {
+          setStats(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to load student stats:', err);
+      }
+    };
+    if (token) {
+      fetchStats();
+    }
+  }, [token]);
 
   const handleLogout = () => {
     logoutContext();
@@ -65,6 +88,13 @@ const StudentDashboard = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              to="/student/bookmarks"
+              className="p-2 text-gray-500 hover:text-amber-500 hover:bg-gray-100 rounded-xl transition-colors"
+              title="My Bookmarks"
+            >
+              <Bookmark className="h-5 w-5" />
+            </Link>
             <StudentNotificationBell />
             <button
               id="student-logout-btn"
@@ -93,19 +123,55 @@ const StudentDashboard = () => {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-          <StatCard icon={BookMarked} label="Enrolled Courses" value="—" color="bg-amber-500" to="/student/courses" />
-          <StatCard icon={Star} label="GPA" value="—" color="bg-orange-500" />
-          <StatCard icon={ClipboardCheck} label="Assignments Due" value="—" color="bg-rose-500" />
-          <StatCard icon={Calendar} label="Upcoming Exams" value="—" color="bg-pink-500" />
+          <StatCard icon={BookMarked} label="Enrolled Courses" value={stats.enrolledCount} color="bg-amber-500" to="/student/courses" />
+          <StatCard icon={Star} label="GPA" value={stats.gpa} color="bg-orange-500" />
+          <StatCard icon={ClipboardCheck} label="Assignments Due" value={stats.assignmentsDue} color="bg-rose-500" />
+          <StatCard icon={Calendar} label="Upcoming Exams" value={stats.examsCount} color="bg-pink-500" />
         </div>
 
-        {/* Coming Soon */}
-        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-          <BookMarked className="h-10 w-10 text-amber-300 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-gray-700">Student Portal</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            Course and grade features will be built out in the next epic.
-          </p>
+        {/* Quick Actions */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-8">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Link
+              to="/student/courses"
+              className="group flex items-center gap-4 p-4 rounded-xl border border-dashed border-amber-200 hover:border-amber-400 hover:bg-amber-50/50 transition-all duration-200"
+            >
+              <div className="h-10 w-10 rounded-xl bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                <BookMarked className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">My Courses</p>
+                <p className="text-xs text-gray-500">Access course slides & quizzes</p>
+              </div>
+            </Link>
+
+            <Link
+              to="/student/bookmarks"
+              className="group flex items-center gap-4 p-4 rounded-xl border border-dashed border-amber-200 hover:border-amber-400 hover:bg-amber-50/50 transition-all duration-200"
+            >
+              <div className="h-10 w-10 rounded-xl bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                <Bookmark className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">My Bookmarks</p>
+                <p className="text-xs text-gray-500">Quick access to starred files</p>
+              </div>
+            </Link>
+
+            <Link
+              to="/lost-found"
+              className="group flex items-center gap-4 p-4 rounded-xl border border-dashed border-amber-200 hover:border-amber-400 hover:bg-amber-50/50 transition-all duration-200"
+            >
+              <div className="h-10 w-10 rounded-xl bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                <Calendar className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">Lost & Found</p>
+                <p className="text-xs text-gray-500">Claim lost/found items</p>
+              </div>
+            </Link>
+          </div>
         </div>
       </main>
     </div>

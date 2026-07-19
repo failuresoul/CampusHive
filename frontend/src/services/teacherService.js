@@ -62,11 +62,13 @@ export const getTeachers = async (
     department = '',
     page       = 1,
     pageSize   = 25,
+    sortBy     = 'name',
+    sortOrder  = 'asc',
   } = {},
   token
 ) => {
   const response = await axios.get(API_URL, {
-    params: { search, department, page, pageSize },
+    params: { search, department, page, pageSize, sortBy, sortOrder },
     headers: { Authorization: `Bearer ${token}` },
   });
   // response.data.data = { teachers, pagination }

@@ -134,7 +134,7 @@ const SubmissionQueueTable = ({ submissions = [], loading = false, statusFilter 
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {submissions.map((sub, idx) => (
+            {submissions.map((sub) => (
               <tr
                 key={sub.id}
                 id={`submission-row-${sub.id}`}
