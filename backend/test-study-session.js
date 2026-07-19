@@ -145,12 +145,74 @@ async function runTests() {
     const validData = await resValid.json();
     console.log('Response body:', validData);
     if (resValid.status !== 201 || !validData.success) throw new Error('Expected 201 for valid creation');
+    const createdSessionId = validData.data.id;
 
-    // Clean up created study session
-    if (validData.data && validData.data.id) {
-      await StudySession.destroy({ where: { id: validData.data.id } });
-      console.log('Cleaned up created test study session.');
+    // Direct Database Insertion for past session (bypassing validation checks to create test case)
+    console.log('Creating a past study session directly in database for validation filters...');
+    const pastSession = await StudySession.create({
+      title: 'Past Exam Study Group',
+      courseId: enrolledCourse.id,
+      creatorId: student.id,
+      location: 'Library Room 101',
+      sessionDateTime: new Date(Date.now() - 172800000), // 2 days ago
+      maxParticipants: 5,
+    });
+
+    // Test 6: GET study sessions - No Token (Expected: 401)
+    console.log('\nTest 6: GET study sessions with no auth token...');
+    const resGetNoToken = await fetch(`${baseUrl}/study-sessions`);
+    console.log('GET No Token Status:', resGetNoToken.status, '(Expected: 401)');
+    if (resGetNoToken.status !== 401) throw new Error('Expected 401 for GET without token');
+
+    // Test 7: GET study sessions - Valid Token, Default Upcoming (Expected: 200, excludes pastSession)
+    console.log('\nTest 7: GET study sessions (default upcoming=true)...');
+    const resGetDefault = await fetch(`${baseUrl}/study-sessions`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    });
+    console.log('GET Default Status:', resGetDefault.status, '(Expected: 200)');
+    const getDataDefault = await resGetDefault.json();
+    console.log('Returned sessions count:', getDataDefault.data.sessions.length);
+    
+    // Ensure past session is NOT in default list
+    const hasPastInDefault = getDataDefault.data.sessions.some(s => s.id === pastSession.id);
+    console.log('Contains past session in upcoming list:', hasPastInDefault, '(Expected: false)');
+    if (hasPastInDefault) throw new Error('Default upcoming=true list should not contain past sessions');
+
+    // Ensure session properties match spec (rsvpCount, creator name, course details)
+    if (getDataDefault.data.sessions.length > 0) {
+      const first = getDataDefault.data.sessions[0];
+      console.log('Properties check: rsvpCount exists:', first.rsvpCount !== undefined, first.rsvpCount);
+      console.log('Properties check: creator name exists:', first.creator && typeof first.creator.name === 'string');
+      console.log('Properties check: course details exists:', first.course && typeof first.course.code === 'string');
+      if (first.rsvpCount !== 0) throw new Error('Expected placeholder rsvpCount to be 0');
     }
+
+    // Test 8: GET study sessions - Show Past (Expected: 200, includes pastSession)
+    console.log('\nTest 8: GET study sessions (upcoming=false)...');
+    const resGetPast = await fetch(`${baseUrl}/study-sessions?upcoming=false`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    });
+    console.log('GET with upcoming=false Status:', resGetPast.status, '(Expected: 200)');
+    const getDataPast = await resGetPast.json();
+    const hasPastInAll = getDataPast.data.sessions.some(s => s.id === pastSession.id);
+    console.log('Contains past session in all list:', hasPastInAll, '(Expected: true)');
+    if (!hasPastInAll) throw new Error('GET upcoming=false list should contain past sessions');
+
+    // Test 9: GET study sessions - Course filter
+    console.log('\nTest 9: GET study sessions filtered by courseId...');
+    const resGetFiltered = await fetch(`${baseUrl}/study-sessions?courseId=${unenrolledCourse.id}&upcoming=false`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    });
+    const getDataFiltered = await resGetFiltered.json();
+    console.log('Filtered sessions count:', getDataFiltered.data.sessions.length);
+    const hasOtherCourse = getDataFiltered.data.sessions.some(s => s.courseId !== unenrolledCourse.id);
+    console.log('Contains sessions from other courses:', hasOtherCourse, '(Expected: false)');
+    if (hasOtherCourse) throw new Error('Course filter returned study sessions from other courses');
+
+    // Clean up created study sessions
+    await StudySession.destroy({ where: { id: createdSessionId } });
+    await StudySession.destroy({ where: { id: pastSession.id } });
+    console.log('\nCleaned up created test study sessions.');
 
     console.log('\n--- All API Verification Tests Passed Successfully! ---');
   } catch (error) {
