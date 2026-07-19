@@ -348,11 +348,17 @@ const QuizLaunchPage = () => {
             </div>
             <h2 className="text-4xl font-black text-gray-900 mb-4 tracking-tight">Quiz Closed</h2>
             <p className="text-lg text-gray-500 mb-8">
-              The quiz session has been closed successfully. All responses have been saved.
+              The quiz session has been closed successfully. All responses have been saved. You can now view detailed participant scores and option choice analytics.
             </p>
             <button 
+              onClick={() => navigate(`/teacher/courses/${courseId}/quizzes/${quizId}/results`)} 
+              className="w-full px-6 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors text-lg shadow-lg mb-3"
+            >
+              View Quiz Analytics
+            </button>
+            <button 
               onClick={() => navigate(`/teacher/courses/${courseId}/quizzes`)} 
-              className="w-full px-6 py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors text-lg shadow-lg"
+              className="w-full px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors text-lg"
             >
               Return to Quizzes
             </button>

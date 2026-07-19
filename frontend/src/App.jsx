@@ -27,6 +27,8 @@ import TeacherSubmissionQueuePage from './pages/teacher/TeacherSubmissionQueuePa
 import GradeSubmissionPage from './pages/teacher/GradeSubmissionPage';
 import QuizCreatePage from './pages/teacher/QuizCreatePage';
 import QuizLaunchPage from './pages/teacher/QuizLaunchPage';
+import StudentQuizResultsPage from './pages/student/StudentQuizResultsPage';
+import TeacherQuizAnalyticsPage from './pages/teacher/TeacherQuizAnalyticsPage';
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -211,6 +213,14 @@ function App() {
               }
             />
             <Route
+              path="/teacher/courses/:courseId/quizzes/:quizId/results"
+              element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <TeacherQuizAnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/student/dashboard"
               element={
                 <ProtectedRoute allowedRoles={['student']}>
@@ -259,6 +269,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <QuizTakingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/courses/:courseId/quizzes/:quizId/results"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <StudentQuizResultsPage />
                 </ProtectedRoute>
               }
             />

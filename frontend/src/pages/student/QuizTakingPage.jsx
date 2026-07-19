@@ -245,9 +245,18 @@ const QuizTakingPage = () => {
           </div>
           <h2 className="text-4xl font-black text-gray-900 mb-4 tracking-tight">Quiz Complete!</h2>
           <p className="text-lg text-gray-500 mb-8">
-            Great job! Scoring and results will be available soon (Sprint 7).
+            Great job! Your responses have been saved. You can now view your final score, rank, and detailed question breakdown.
           </p>
-          <button onClick={() => navigate('/student/dashboard')} className="w-full px-6 py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors text-lg shadow-lg">
+          <button 
+            onClick={() => navigate(`/student/courses/${courseId}/quizzes/${quizId}/results`)} 
+            className="w-full px-6 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors text-lg shadow-lg mb-3"
+          >
+            View Quiz Results
+          </button>
+          <button 
+            onClick={() => navigate('/student/dashboard')} 
+            className="w-full px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors text-lg"
+          >
             Return to Dashboard
           </button>
         </div>
