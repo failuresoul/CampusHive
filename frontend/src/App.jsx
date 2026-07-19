@@ -19,6 +19,9 @@ import CourseListPage from './pages/admin/CourseListPage';
 import AssignTeacherPage from './pages/admin/AssignTeacherPage';
 import AutoEnrollPage from './pages/admin/AutoEnrollPage';
 import StudentCoursesPage from './pages/student/StudentCoursesPage';
+import PostStudySessionPage from './pages/student/PostStudySessionPage';
+import BrowseStudySessionsPage from './pages/student/BrowseStudySessionsPage';
+import StudySessionDetailPage from './pages/student/StudySessionDetailPage';
 import LabReportUploadPage from './pages/student/LabReportUploadPage';
 import SubmissionHistoryPage from './pages/student/SubmissionHistoryPage';
 import SubmissionDetailPage from './pages/student/SubmissionDetailPage';
@@ -30,6 +33,7 @@ import QuizLaunchPage from './pages/teacher/QuizLaunchPage';
 import StudentQuizResultsPage from './pages/student/StudentQuizResultsPage';
 import TeacherQuizAnalyticsPage from './pages/teacher/TeacherQuizAnalyticsPage';
 import PostLostFoundItemPage from './pages/shared/PostLostFoundItemPage';
+import BrowseLostFoundPage from './pages/shared/BrowseLostFoundPage';
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -238,6 +242,30 @@ function App() {
               }
             />
             <Route
+              path="/student/study-sessions/create"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <PostStudySessionPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/study-sessions"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <BrowseStudySessionsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/study-sessions/:id"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <StudySessionDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/student/courses/:courseId/labtrack"
               element={<Navigate to="history" replace />}
             />
@@ -288,6 +316,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
                   <PostLostFoundItemPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lost-found"
+              element={
+                <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+                  <BrowseLostFoundPage />
                 </ProtectedRoute>
               }
             />

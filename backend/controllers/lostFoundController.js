@@ -1,4 +1,5 @@
-const { LostFoundItem } = require('../models/associations');
+const { LostFoundItem, User } = require('../models/associations');
+const { Op } = require('sequelize');
 
 /**
  * createLostFoundItem
@@ -84,6 +85,83 @@ const createLostFoundItem = async (req, res) => {
   }
 };
 
+/**
+ * getLostFoundItems
+ * GET /api/lost-found-items
+ * Retrieves a paginated list of lost/found item reports, with optional filtering.
+ */
+const getLostFoundItems = async (req, res) => {
+  try {
+    const { type, category, status, search, page, pageSize } = req.query;
+
+    const pageNum = parseInt(page) || 1;
+    const limit = parseInt(pageSize) || 10;
+    const offset = (pageNum - 1) * limit;
+
+    const whereClause = {};
+
+    // 1. Type Filter (lost/found/all)
+    if (type && type !== 'all') {
+      whereClause.type = type;
+    }
+
+    // 2. Category Filter
+    if (category) {
+      whereClause.category = category;
+    }
+
+    // 3. Status Filter (default to 'open', allow 'all' or specific values)
+    const statusFilter = status || 'open';
+    if (statusFilter !== 'all') {
+      whereClause.status = statusFilter;
+    }
+
+    // 4. Search Filter (matches title/description)
+    if (search) {
+      whereClause[Op.or] = [
+        { title: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    const { count, rows } = await LostFoundItem.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: User,
+          as: 'reporter',
+          attributes: ['name']
+        }
+      ],
+      order: [['createdAt', 'DESC']], // show most recent first
+      limit,
+      offset
+    });
+
+    const totalPages = Math.ceil(count / limit);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        items: rows,
+        pagination: {
+          page: pageNum,
+          pageSize: limit,
+          totalItems: count,
+          totalPages
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching lost/found items:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: Could not fetch lost/found items.'
+    });
+  }
+};
+
 module.exports = {
-  createLostFoundItem
+  createLostFoundItem,
+  getLostFoundItems
 };

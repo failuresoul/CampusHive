@@ -62,4 +62,10 @@ router.post(
   lostFoundController.createLostFoundItem
 );
 
+/**
+ * GET /api/lost-found-items
+ * Retrieves a list of lost/found items. Protected: any authenticated role.
+ */
+router.get('/', authMiddleware, lostFoundController.getLostFoundItems);
+
 module.exports = router;
