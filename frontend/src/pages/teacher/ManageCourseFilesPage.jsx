@@ -147,6 +147,23 @@ const ManageCourseFilesPage = () => {
     }
   };
 
+  const handleDownloadClick = async (material) => {
+    try {
+      setError(null);
+      await courseHubService.downloadMaterial(material.id, token, material.originalFileName);
+      setMaterials((prev) =>
+        prev.map((m) =>
+          m.id === material.id
+            ? { ...m, downloadCount: (m.downloadCount ?? 0) + 1 }
+            : m
+        )
+      );
+    } catch (err) {
+      console.error('Error downloading material:', err);
+      setError(err.response?.data?.message || 'Failed to download material.');
+    }
+  };
+
   if (isLoading && !course) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -288,6 +305,7 @@ const ManageCourseFilesPage = () => {
           <MaterialsTable 
             materials={sortedMaterials} 
             onDeleteClick={handleDeleteClick} 
+            onDownloadClick={handleDownloadClick}
           />
         )}
       </main>

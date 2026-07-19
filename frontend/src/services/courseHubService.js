@@ -66,4 +66,30 @@ export const courseHubService = {
     });
     return response.data;
   },
+
+  /**
+   * downloadMaterial
+   * Downloads a course material securely.
+   *
+   * @param {string} materialId - ID of the material
+   * @param {string} token - JWT bearer token
+   * @param {string} originalFileName - Original filename for the saved file
+   */
+  downloadMaterial: async (materialId, token, originalFileName) => {
+    const response = await axios.get(`http://localhost:5000/api/materials/${materialId}/download`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data]);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = originalFileName || 'material';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

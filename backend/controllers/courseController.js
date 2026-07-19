@@ -985,6 +985,84 @@ const deleteMaterial = async (req, res) => {
   }
 };
 
+const downloadMaterial = async (req, res) => {
+  try {
+    const { materialId } = req.params;
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    // 1. Fetch material
+    const material = await CourseMaterial.findByPk(materialId);
+    if (!material) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course material not found.',
+      });
+    }
+
+    const { courseId } = material;
+
+    // 2. Check authorization: teacher must be assigned, student must be enrolled
+    if (role === 'teacher') {
+      const assignment = await CourseTeacher.findOne({
+        where: { courseId, teacherId: userId },
+      });
+      if (!assignment) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not assigned to this course.',
+        });
+      }
+    } else if (role === 'student') {
+      const enrollment = await Enrollment.findOne({
+        where: { courseId, studentId: userId },
+      });
+      if (!enrollment) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not enrolled in this course.',
+        });
+      }
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Invalid role context.',
+      });
+    }
+
+    // 3. Resolve path and verify existence
+    const absolutePath = path.resolve(material.filePath);
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found on server.',
+      });
+    }
+
+    // 4. Increment download count atomically
+    await material.increment('downloadCount', { by: 1 });
+
+    // 5. Send file with original filename
+    return res.download(absolutePath, material.originalFileName, (err) => {
+      if (err) {
+        console.error('Error downloading course material:', err);
+        if (!res.headersSent) {
+          return res.status(500).json({
+            success: false,
+            message: 'Error downloading file.',
+          });
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error in downloadMaterial controller:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while downloading course material.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
@@ -1000,4 +1078,5 @@ module.exports = {
   uploadMaterials,
   getMaterials,
   deleteMaterial,
+  downloadMaterial,
 };
