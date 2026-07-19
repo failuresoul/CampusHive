@@ -45,6 +45,25 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
+// Multer config for Course Materials
+const materialsStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const teacherId = req.user ? req.user.id : 'unknown';
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'material-' + teacherId + '-' + uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const uploadMaterialsMulter = multer({ 
+  storage: materialsStorage,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB to allow controller-side size validation
+  }
+});
+
 // GET /api/courses
 // List all courses (authenticated users)
 router.get(
@@ -151,6 +170,26 @@ router.get(
   authMiddleware,
   roleMiddleware(['student']),
   courseController.getLabReportDetail
+);
+
+// POST /api/courses/:courseId/materials
+// Upload course materials (teacher only)
+router.post(
+  '/:courseId/materials',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+  (req, res, next) => {
+    const uploadArray = uploadMaterialsMulter.array('files');
+    uploadArray(req, res, function (err) {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ success: false, message: 'File upload error: ' + err.message });
+      } else if (err) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      next();
+    });
+  },
+  courseController.uploadMaterials
 );
 
 module.exports = router;
