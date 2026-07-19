@@ -836,7 +836,6 @@ const uploadMaterials = async (req, res) => {
 const getMaterials = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const teacherId = req.user.id;
     const { category, search } = req.query;
 
     // 1. Verify course exists
@@ -848,14 +847,31 @@ const getMaterials = async (req, res) => {
       });
     }
 
-    // 2. Verify logged-in teacher is assigned to the course
-    const assignment = await CourseTeacher.findOne({
-      where: { courseId, teacherId },
-    });
-    if (!assignment) {
+    // 2. Verify authorization based on user role (teachers must be assigned, students must be enrolled)
+    if (req.user.role === 'teacher') {
+      const assignment = await CourseTeacher.findOne({
+        where: { courseId, teacherId: req.user.id },
+      });
+      if (!assignment) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not assigned to this course.',
+        });
+      }
+    } else if (req.user.role === 'student') {
+      const enrollment = await Enrollment.findOne({
+        where: { courseId, studentId: req.user.id },
+      });
+      if (!enrollment) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not enrolled in this course.',
+        });
+      }
+    } else {
       return res.status(403).json({
         success: false,
-        message: 'Forbidden: You are not assigned to this course.',
+        message: 'Forbidden: Invalid role context.',
       });
     }
 

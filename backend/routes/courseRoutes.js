@@ -193,11 +193,11 @@ router.post(
 );
 
 // GET /api/courses/:courseId/materials
-// Retrieve course materials (teacher only)
+// Retrieve course materials (teacher and student)
 router.get(
   '/:courseId/materials',
   authMiddleware,
-  roleMiddleware(['teacher']),
+  roleMiddleware(['teacher', 'student']),
   courseController.getMaterials
 );
 
