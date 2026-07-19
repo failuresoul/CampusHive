@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useQuizSocket } from '../../hooks/useQuizSocket';
 import QuizCountdownTimer from '../../components/student/QuizCountdownTimer';
 import QuizQuestionDisplay from '../../components/student/QuizQuestionDisplay';
+import LiveLeaderboard from '../../components/quiz/LiveLeaderboard';
 
 const QuizTakingPage = () => {
   const { courseId, quizId } = useParams();
@@ -269,33 +270,43 @@ const QuizTakingPage = () => {
                 )}
 
                 {revealData && (
-                  <div className={`p-6 rounded-2xl border-2 shadow-sm transition-all duration-300 ${
-                    revealData.selectedOptionId === null
-                      ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
-                      : revealData.isCorrect
-                        ? 'border-green-200 bg-green-50 text-green-800'
-                        : 'border-red-200 bg-red-50 text-red-800'
-                  }`}>
-                    <div className="flex items-center">
-                      <span className="text-3xl mr-4">
-                        {revealData.selectedOptionId === null ? '⌛' : revealData.isCorrect ? '🎉' : '❌'}
-                      </span>
-                      <div>
-                        <h3 className="text-xl font-bold">
-                          {revealData.selectedOptionId === null 
-                            ? "Time's Up!" 
-                            : revealData.isCorrect 
-                              ? 'Correct! Well done.' 
-                              : 'Incorrect.'}
-                        </h3>
-                        <p className="text-sm mt-1 opacity-90">
-                          {revealData.selectedOptionId === null 
-                            ? "You didn't submit an answer in time." 
-                            : revealData.isCorrect 
-                              ? 'You got this question right! Great job.' 
-                              : 'Better luck on the next question!'}
-                        </p>
+                  <div className="flex flex-col gap-6">
+                    <div className={`p-6 rounded-2xl border-2 shadow-sm transition-all duration-300 ${
+                      revealData.selectedOptionId === null
+                        ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
+                        : revealData.isCorrect
+                          ? 'border-green-200 bg-green-50 text-green-800'
+                          : 'border-red-200 bg-red-50 text-red-800'
+                    }`}>
+                      <div className="flex items-center">
+                        <span className="text-3xl mr-4">
+                          {revealData.selectedOptionId === null ? '⌛' : revealData.isCorrect ? '🎉' : '❌'}
+                        </span>
+                        <div>
+                          <h3 className="text-xl font-bold">
+                            {revealData.selectedOptionId === null 
+                              ? "Time's Up!" 
+                              : revealData.isCorrect 
+                                ? 'Correct! Well done.' 
+                                : 'Incorrect.'}
+                          </h3>
+                          <p className="text-sm mt-1 opacity-90">
+                            {revealData.selectedOptionId === null 
+                              ? "You didn't submit an answer in time." 
+                              : revealData.isCorrect 
+                                ? 'You got this question right! Great job.' 
+                                : 'Better luck on the next question!'}
+                          </p>
+                        </div>
                       </div>
+                    </div>
+
+                    <div className="mt-2">
+                      <LiveLeaderboard 
+                        currentStudentId={user?.id || 'stu-student'} 
+                        isCompact={true}
+                        socket={socket}
+                      />
                     </div>
                   </div>
                 )}
