@@ -33,6 +33,7 @@ import QuizLaunchPage from './pages/teacher/QuizLaunchPage';
 import StudentQuizResultsPage from './pages/student/StudentQuizResultsPage';
 import TeacherQuizAnalyticsPage from './pages/teacher/TeacherQuizAnalyticsPage';
 import PostLostFoundItemPage from './pages/shared/PostLostFoundItemPage';
+import BrowseLostFoundPage from './pages/shared/BrowseLostFoundPage';
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -315,6 +316,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
                   <PostLostFoundItemPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lost-found"
+              element={
+                <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+                  <BrowseLostFoundPage />
                 </ProtectedRoute>
               }
             />
