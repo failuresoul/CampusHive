@@ -9,6 +9,7 @@ const QuizQuestion = require('./QuizQuestion');
 const QuizOption = require('./QuizOption');
 const QuizResponse = require('./QuizResponse');
 const StudySession = require('./StudySession');
+const LostFoundItem = require('./LostFoundItem');
 
 // Course - User (Teacher) Many-to-Many Relationship
 Course.belongsToMany(User, {
@@ -87,6 +88,10 @@ User.hasMany(StudySession, { as: 'createdSessions', foreignKey: 'creatorId' });
 StudySession.belongsTo(Course, { as: 'course', foreignKey: 'courseId' });
 Course.hasMany(StudySession, { as: 'studySessions', foreignKey: 'courseId' });
 
+// LostFoundItem Relationships
+LostFoundItem.belongsTo(User, { as: 'reporter', foreignKey: 'reporterId' });
+User.hasMany(LostFoundItem, { as: 'lostFoundItems', foreignKey: 'reporterId' });
+
 module.exports = {
   Course,
   User,
@@ -99,5 +104,6 @@ module.exports = {
   QuizOption,
   QuizResponse,
   StudySession,
+  LostFoundItem,
 };
 
