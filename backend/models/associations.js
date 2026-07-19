@@ -11,6 +11,7 @@ const QuizResponse = require('./QuizResponse');
 const StudySession = require('./StudySession');
 const LostFoundItem = require('./LostFoundItem');
 const StudySessionRsvp = require('./StudySessionRsvp');
+const LostFoundClaim = require('./LostFoundClaim');
 
 // Course - User (Teacher) Many-to-Many Relationship
 Course.belongsToMany(User, {
@@ -104,6 +105,13 @@ User.hasMany(StudySessionRsvp, { as: 'rsvps', foreignKey: 'studentId' });
 StudySession.belongsToMany(User, { through: StudySessionRsvp, as: 'participants', foreignKey: 'sessionId', otherKey: 'studentId' });
 User.belongsToMany(StudySession, { through: StudySessionRsvp, as: 'rsvpSessions', foreignKey: 'studentId', otherKey: 'sessionId' });
 
+// LostFoundClaim Relationships
+LostFoundClaim.belongsTo(LostFoundItem, { as: 'item', foreignKey: 'itemId' });
+LostFoundItem.hasMany(LostFoundClaim, { as: 'claims', foreignKey: 'itemId' });
+
+LostFoundClaim.belongsTo(User, { as: 'claimant', foreignKey: 'claimantId' });
+User.hasMany(LostFoundClaim, { as: 'claims', foreignKey: 'claimantId' });
+
 module.exports = {
   Course,
   User,
@@ -118,4 +126,5 @@ module.exports = {
   StudySession,
   LostFoundItem,
   StudySessionRsvp,
+  LostFoundClaim,
 };

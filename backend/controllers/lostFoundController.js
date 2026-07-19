@@ -1,4 +1,4 @@
-const { LostFoundItem, User } = require('../models/associations');
+const { LostFoundItem, User, LostFoundClaim, Notification } = require('../models/associations');
 const { Op } = require('sequelize');
 
 /**
@@ -92,7 +92,7 @@ const createLostFoundItem = async (req, res) => {
  */
 const getLostFoundItems = async (req, res) => {
   try {
-    const { type, category, status, search, page, pageSize } = req.query;
+    const { type, category, status, search, page, pageSize, reporterId } = req.query;
 
     const pageNum = parseInt(page) || 1;
     const limit = parseInt(pageSize) || 10;
@@ -122,6 +122,11 @@ const getLostFoundItems = async (req, res) => {
         { title: { [Op.like]: `%${search}%` } },
         { description: { [Op.like]: `%${search}%` } }
       ];
+    }
+
+    // 5. Reporter ID filter
+    if (reporterId) {
+      whereClause.reporterId = reporterId;
     }
 
     const { count, rows } = await LostFoundItem.findAndCountAll({
@@ -161,7 +166,239 @@ const getLostFoundItems = async (req, res) => {
   }
 };
 
+const getLostFoundItemById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await LostFoundItem.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'reporter',
+          attributes: ['name']
+        }
+      ]
+    });
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lost/found item not found.'
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      data: item
+    });
+  } catch (error) {
+    console.error('Error fetching item by ID:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: Could not fetch item details.'
+    });
+  }
+};
+
+const claimLostFoundItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+    const claimantId = req.user.id;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error: Claim message is required.'
+      });
+    }
+
+    const item = await LostFoundItem.findByPk(id);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lost/found item not found.'
+      });
+    }
+
+    if (item.status === 'resolved' || item.status === 'claimed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error: This item is already resolved/claimed.'
+      });
+    }
+
+    if (String(item.reporterId) === String(claimantId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error: You cannot claim your own reported item.'
+      });
+    }
+
+    // Check duplicate pending claims
+    const existingClaim = await LostFoundClaim.findOne({
+      where: {
+        itemId: id,
+        claimantId,
+        status: 'pending'
+      }
+    });
+
+    if (existingClaim) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error: You already have a pending claim for this item.'
+      });
+    }
+
+    // Create claim
+    const claim = await LostFoundClaim.create({
+      itemId: id,
+      claimantId,
+      message: message.trim(),
+      status: 'pending'
+    });
+
+    // Notify reporter
+    const claimant = await User.findByPk(claimantId);
+    await Notification.create({
+      userId: item.reporterId,
+      type: 'lost_found_claim',
+      referenceId: item.id,
+      message: `New claim request on your item "${item.title}" by ${claimant?.name || 'someone'}.`
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        claimId: claim.id,
+        status: 'pending'
+      }
+    });
+  } catch (error) {
+    console.error('Error claiming lost/found item:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: Could not submit claim.'
+    });
+  }
+};
+
+const getLostFoundItemClaims = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const requesterId = req.user.id;
+
+    const item = await LostFoundItem.findByPk(id);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lost/found item not found.'
+      });
+    }
+
+    if (String(item.reporterId) !== String(requesterId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only the reporter can view claims.'
+      });
+    }
+
+    const claims = await LostFoundClaim.findAll({
+      where: { itemId: id },
+      include: [
+        {
+          model: User,
+          as: 'claimant',
+          attributes: ['id', 'name', 'role']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: claims
+    });
+  } catch (error) {
+    console.error('Error fetching item claims:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: Could not fetch claims.'
+    });
+  }
+};
+
+const confirmLostFoundItemClaim = async (req, res) => {
+  try {
+    const { id, claimId } = req.params;
+    const requesterId = req.user.id;
+
+    const item = await LostFoundItem.findByPk(id);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lost/found item not found.'
+      });
+    }
+
+    if (String(item.reporterId) !== String(requesterId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only the reporter can confirm claims.'
+      });
+    }
+
+    const claim = await LostFoundClaim.findByPk(claimId);
+    if (!claim || String(claim.itemId) !== String(id)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Claim not found for this item.'
+      });
+    }
+
+    if (claim.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error: Only pending claims can be confirmed.'
+      });
+    }
+
+    // Confirm this claim
+    claim.status = 'confirmed';
+    await claim.save();
+
+    // Resolve item
+    item.status = 'resolved';
+    await item.save();
+
+    // Auto-reject other pending claims on this item
+    await LostFoundClaim.update(
+      { status: 'rejected' },
+      {
+        where: {
+          itemId: id,
+          status: 'pending',
+          id: { [Op.ne]: claimId }
+        }
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Claim confirmed and item resolved.'
+    });
+  } catch (error) {
+    console.error('Error confirming claim:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: Could not confirm claim.'
+    });
+  }
+};
+
 module.exports = {
   createLostFoundItem,
-  getLostFoundItems
+  getLostFoundItems,
+  getLostFoundItemById,
+  claimLostFoundItem,
+  getLostFoundItemClaims,
+  confirmLostFoundItemClaim
 };

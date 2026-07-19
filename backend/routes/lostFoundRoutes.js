@@ -68,4 +68,28 @@ router.post(
  */
 router.get('/', authMiddleware, lostFoundController.getLostFoundItems);
 
+/**
+ * GET /api/lost-found-items/:id
+ * Retrieves detail of a specific lost/found item. Protected: any authenticated role.
+ */
+router.get('/:id', authMiddleware, lostFoundController.getLostFoundItemById);
+
+/**
+ * POST /api/lost-found-items/:id/claim
+ * Submits a claim on a lost/found item. Protected: any authenticated role.
+ */
+router.post('/:id/claim', authMiddleware, lostFoundController.claimLostFoundItem);
+
+/**
+ * GET /api/lost-found-items/:id/claims
+ * Retrieves claims list for a specific lost/found item. Protected: reporter only.
+ */
+router.get('/:id/claims', authMiddleware, lostFoundController.getLostFoundItemClaims);
+
+/**
+ * PATCH /api/lost-found-items/:id/claims/:claimId/confirm
+ * Confirms a specific claim request. Protected: reporter only.
+ */
+router.patch('/:id/claims/:claimId/confirm', authMiddleware, lostFoundController.confirmLostFoundItemClaim);
+
 module.exports = router;

@@ -13,7 +13,7 @@ export const postItem = async (formData, token) => {
 };
 
 export const getItems = async (filters = {}, token) => {
-  const { type, category, status, search, page, pageSize } = filters;
+  const { type, category, status, search, page, pageSize, reporterId } = filters;
   const params = {};
   if (type) params.type = type;
   if (category) params.category = category;
@@ -21,6 +21,7 @@ export const getItems = async (filters = {}, token) => {
   if (search) params.search = search;
   if (page) params.page = page;
   if (pageSize) params.pageSize = pageSize;
+  if (reporterId) params.reporterId = reporterId;
 
   const response = await axios.get(API_URL, {
     params,
@@ -54,6 +55,28 @@ export const getItemById = async (id, token) => {
 };
 
 export const claimItem = async (id, message, token) => {
-  // TODO: connect to POST /api/lost-found-items/:id/claim in Story 5
-  return { success: true, message: 'Claim submitted successfully' };
+  const response = await axios.post(`${API_URL}/${id}/claim`, { message }, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const getClaims = async (id, token) => {
+  const response = await axios.get(`${API_URL}/${id}/claims`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const confirmClaim = async (id, claimId, token) => {
+  const response = await axios.patch(`${API_URL}/${id}/claims/${claimId}/confirm`, {}, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
 };
