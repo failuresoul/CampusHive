@@ -9,6 +9,7 @@ const QuizQuestion = require('./QuizQuestion');
 const QuizOption = require('./QuizOption');
 const QuizResponse = require('./QuizResponse');
 const StudySession = require('./StudySession');
+const StudySessionRsvp = require('./StudySessionRsvp');
 
 // Course - User (Teacher) Many-to-Many Relationship
 Course.belongsToMany(User, {
@@ -87,6 +88,17 @@ User.hasMany(StudySession, { as: 'createdSessions', foreignKey: 'creatorId' });
 StudySession.belongsTo(Course, { as: 'course', foreignKey: 'courseId' });
 Course.hasMany(StudySession, { as: 'studySessions', foreignKey: 'courseId' });
 
+// StudySessionRsvp Relationships
+StudySessionRsvp.belongsTo(StudySession, { as: 'session', foreignKey: 'sessionId' });
+StudySession.hasMany(StudySessionRsvp, { as: 'rsvps', foreignKey: 'sessionId' });
+
+StudySessionRsvp.belongsTo(User, { as: 'student', foreignKey: 'studentId' });
+User.hasMany(StudySessionRsvp, { as: 'rsvps', foreignKey: 'studentId' });
+
+// Many-to-Many via StudySessionRsvp (for participants list querying)
+StudySession.belongsToMany(User, { through: StudySessionRsvp, as: 'participants', foreignKey: 'sessionId', otherKey: 'studentId' });
+User.belongsToMany(StudySession, { through: StudySessionRsvp, as: 'rsvpSessions', foreignKey: 'studentId', otherKey: 'sessionId' });
+
 module.exports = {
   Course,
   User,
@@ -99,5 +111,6 @@ module.exports = {
   QuizOption,
   QuizResponse,
   StudySession,
+  StudySessionRsvp,
 };
 
