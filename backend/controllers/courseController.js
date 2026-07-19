@@ -1,4 +1,4 @@
-const { Course, User, CourseTeacher, Enrollment, LabReport } = require('../models/associations');
+const { Course, User, CourseTeacher, Enrollment, LabReport, CourseMaterial } = require('../models/associations');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const path = require('path');
@@ -647,6 +647,187 @@ const getLabReportDetail = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/courses/:courseId/materials
+ * Upload multiple course learning materials (teacher only).
+ * Performs validation per file and outputs a partial success report.
+ */
+const uploadMaterials = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const teacherId = req.user.id;
+
+    // 1. Verify course exists
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      // Clean up uploaded files if course does not exist
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(file => {
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        });
+      }
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found.',
+      });
+    }
+
+    // 2. Verify teacher is assigned to this course
+    const assignment = await CourseTeacher.findOne({
+      where: {
+        courseId,
+        teacherId,
+      },
+    });
+
+    if (!assignment) {
+      // Clean up uploaded files if teacher not assigned
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(file => {
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        });
+      }
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You are not assigned to this course.',
+      });
+    }
+
+    // 3. Check file presence
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No files uploaded.',
+      });
+    }
+
+    const uploadedList = [];
+    const failedList = [];
+
+    // Parse parallel arrays or strings from body
+    const titles = Array.isArray(req.body.title) 
+      ? req.body.title 
+      : (req.body.title ? [req.body.title] : []);
+
+    const categories = Array.isArray(req.body.category) 
+      ? req.body.category 
+      : (req.body.category ? [req.body.category] : []);
+
+    const descriptions = Array.isArray(req.body.description) 
+      ? req.body.description 
+      : (req.body.description ? [req.body.description] : []);
+
+    // 4. Validate and save each file independently
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const originalName = file.originalname;
+      const ext = path.extname(originalName).toLowerCase();
+      
+      const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.zip'];
+      const ALLOWED_MIME_TYPES = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/zip',
+        'application/x-zip-compressed'
+      ];
+      const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
+
+      const isValidExtension = ALLOWED_EXTENSIONS.includes(ext);
+      const isValidMime = ALLOWED_MIME_TYPES.includes(file.mimetype);
+
+      // Check format validity
+      if (!isValidExtension && !isValidMime) {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        failedList.push({
+          fileName: originalName,
+          reason: 'Unsupported file format. Only PDF, DOC/DOCX, PPT/PPTX, and ZIP are allowed.',
+        });
+        continue;
+      }
+
+      // Check size limit
+      if (file.size > MAX_SIZE_BYTES) {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        failedList.push({
+          fileName: originalName,
+          reason: 'File exceeds the maximum size limit of 25MB.',
+        });
+        continue;
+      }
+
+      // Resolve metadata corresponding to file index
+      const title = (titles[i] && titles[i].trim()) || originalName;
+      const category = (categories[i] && categories[i].trim()) || 'Lecture Notes';
+      const description = (descriptions[i] && descriptions[i].trim()) || null;
+
+      try {
+        const material = await CourseMaterial.create({
+          courseId,
+          teacherId,
+          title,
+          category,
+          description,
+          filePath: file.path,
+          originalFileName: originalName,
+          fileSize: file.size,
+          fileType: file.mimetype,
+          downloadCount: 0,
+        });
+
+        uploadedList.push({
+          id: material.id,
+          fileName: originalName,
+          title: material.title,
+          category: material.category,
+        });
+      } catch (err) {
+        console.error(`Error saving course material record for ${originalName}:`, err);
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        failedList.push({
+          fileName: originalName,
+          reason: 'Database insertion failure.',
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        uploaded: uploadedList,
+        failed: failedList,
+      },
+    });
+
+  } catch (error) {
+    console.error('Error in uploadMaterials controller:', error);
+    // Cleanup any successfully uploaded files in the request if controller itself errored out
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while uploading course materials.',
+    });
+  }
+};
+
 module.exports = {
   createCourse,
   getCourses,
@@ -659,4 +840,5 @@ module.exports = {
   getMyLabReports,
   downloadLabReport,
   getLabReportDetail,
+  uploadMaterials,
 };

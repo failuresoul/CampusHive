@@ -12,6 +12,9 @@ import {
   X
 } from 'lucide-react';
 import MultiFileUploadZone from '../../components/coursehub/MultiFileUploadZone';
+import { useAuth } from '../../context/AuthContext';
+import { courseHubService } from '../../services/courseHubService';
+import { getCourses } from '../../services/courseService';
 
 // Helper to get matching file icon
 const getFileIcon = (fileName) => {
@@ -35,6 +38,7 @@ const getFileIcon = (fileName) => {
 const CourseFileUploadPage = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuth();
 
   // Component & Page State
   const [course, setCourse] = useState(null);
@@ -43,16 +47,37 @@ const CourseFileUploadPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [generalError, setGeneralError] = useState(null);
+  const [uploadResult, setUploadResult] = useState(null);
 
-  // Mock fetch course details on load
+  // Fetch course details on load
   useEffect(() => {
-    // Stub fetch course details for header
-    setCourse({
-      id: courseId,
-      code: 'CSE-3106',
-      title: 'Web Programming',
-    });
-  }, [courseId]);
+    const fetchCourse = async () => {
+      try {
+        const coursesList = await getCourses('', token);
+        const matchedCourse = coursesList.find(c => c.id.toString() === courseId.toString());
+        if (matchedCourse) {
+          setCourse(matchedCourse);
+        } else {
+          // Fallback if not found in list
+          setCourse({
+            id: courseId,
+            code: 'COURSE-' + courseId,
+            title: 'Learning Materials',
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load courses:', err);
+        setCourse({
+          id: courseId,
+          code: 'COURSE-' + courseId,
+          title: 'Learning Materials',
+        });
+      }
+    };
+    if (token) {
+      fetchCourse();
+    }
+  }, [courseId, token]);
 
   // Handle addition of files from upload zone
   const handleFilesSelected = (newValidFiles, newRejectedFiles) => {
@@ -106,20 +131,11 @@ const CourseFileUploadPage = () => {
     return isValid;
   };
 
-  // Stub handleUpload
-  const handleUpload = async (_formDataArray) => {
-    // TODO: connect to POST /api/courses/:courseId/materials in Story 2 (multipart/form-data, potentially one request per file or a batch endpoint — document assumption, batch preferred)
-    // Assumption: The backend will accept a batch multipart/form-data upload. If batch is not supported, 
-    // we would map files to individual API POST requests in parallel or sequence. Batch is preferred for atomic transactions.
-    
-    // Simulate upload latency
-    return new Promise((resolve) => setTimeout(resolve, 500));
-  };
-
-  // Start upload simulation
+  // Handle submission of materials using real API
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGeneralError(null);
+    setUploadResult(null);
 
     if (files.length === 0) {
       setGeneralError('Please select at least one file to upload.');
@@ -132,54 +148,55 @@ const CourseFileUploadPage = () => {
 
     setIsSubmitting(true);
 
-    // Simulate progress per-file
-    const simulationIntervals = files.map((file) => {
-      let progress = 0;
-      file.status = 'uploading';
-      file.progress = 0;
+    // Transition files to uploading state
+    setFiles((prev) =>
+      prev.map((f) => ({ ...f, status: 'uploading', progress: 10 }))
+    );
 
-      return setInterval(() => {
-        progress += Math.floor(Math.random() * 20) + 10;
-        if (progress >= 100) {
-          progress = 100;
-          file.progress = 100;
-          file.status = 'success';
-          setFiles((prev) => 
-            prev.map((f) => f.id === file.id ? { ...f, progress: 100, status: 'success' } : f)
-          );
-        } else {
-          file.progress = progress;
-          setFiles((prev) => 
-            prev.map((f) => f.id === file.id ? { ...f, progress } : f)
-          );
-        }
-      }, Math.floor(Math.random() * 200) + 150);
-    });
+    // Animate progress up to 90% while waiting for the network
+    const progressInterval = setInterval(() => {
+      setFiles((prev) =>
+        prev.map((f) => {
+          if (f.status === 'uploading' && f.progress < 90) {
+            const nextProgress = f.progress + Math.floor(Math.random() * 8) + 3;
+            return { ...f, progress: Math.min(nextProgress, 90) };
+          }
+          return f;
+        })
+      );
+    }, 200);
 
-    // Wait until all timers finish
-    const checkCompletionInterval = setInterval(async () => {
-      const allComplete = files.every((f) => f.progress === 100);
-      if (allComplete) {
-        clearInterval(checkCompletionInterval);
-        simulationIntervals.forEach((intervalId) => clearInterval(intervalId));
+    try {
+      // Trigger multipart POST upload via service
+      const res = await courseHubService.uploadMaterials(courseId, files, token);
 
-        // Package data for handleUpload stub
-        const formDataArray = files.map((f) => {
-          const data = new FormData();
-          data.append('file', f.file);
-          data.append('title', f.title);
-          data.append('category', f.category);
-          data.append('description', f.description);
-          return data;
-        });
+      clearInterval(progressInterval);
 
-        // Trigger stub
-        await handleUpload(formDataArray);
+      if (res && res.success) {
+        // Complete the progress bars
+        setFiles((prev) =>
+          prev.map((f) => ({ ...f, status: 'success', progress: 100 }))
+        );
 
-        setIsSubmitting(false);
+        setUploadResult(res.data);
         setIsSuccess(true);
+      } else {
+        throw new Error(res?.message || 'Failed to upload materials.');
       }
-    }, 100);
+    } catch (err) {
+      clearInterval(progressInterval);
+      console.error('Upload error:', err);
+
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to upload materials.';
+      setGeneralError(errorMsg);
+
+      // Revert files back to pending/editable state
+      setFiles((prev) =>
+        prev.map((f) => ({ ...f, status: 'pending', progress: 0 }))
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -188,6 +205,7 @@ const CourseFileUploadPage = () => {
     setIsSuccess(false);
     setIsSubmitting(false);
     setGeneralError(null);
+    setUploadResult(null);
   };
 
   if (!course) {
@@ -203,47 +221,109 @@ const CourseFileUploadPage = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 sm:p-10 max-w-2xl w-full text-center transform hover:scale-[1.01] transition-transform duration-300">
-          <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner animate-bounce">
-            <CheckCircle2 className="w-10 h-10 text-emerald-600" />
-          </div>
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Upload Complete!</h2>
+          {(!uploadResult || !uploadResult.uploaded || uploadResult.uploaded.length === 0) ? (
+            <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner animate-pulse">
+              <AlertCircle className="w-10 h-10 text-rose-600" />
+            </div>
+          ) : (
+            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner animate-bounce">
+              <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+            </div>
+          )}
+          
+          <h2 className="text-3xl font-extrabold text-gray-900 mb-2">
+            {(!uploadResult || !uploadResult.uploaded || uploadResult.uploaded.length === 0) ? 'Upload Failed' : 'Upload Complete!'}
+          </h2>
+          
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
-            Successfully uploaded <span className="font-semibold text-emerald-600">{files.length}</span> course material{files.length > 1 ? 's' : ''} to <span className="font-semibold text-gray-800">{course.code}</span>.
+            {uploadResult?.uploaded?.length > 0 ? (
+              <>
+                Successfully uploaded <span className="font-semibold text-emerald-600">{uploadResult.uploaded.length}</span> course material{uploadResult.uploaded.length > 1 ? 's' : ''} to <span className="font-semibold text-gray-800">{course?.code || 'your course'}</span>.
+              </>
+            ) : (
+              <>
+                All uploads failed. Please review the errors below.
+              </>
+            )}
           </p>
 
           {/* Uploaded materials summary */}
-          <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 mb-8 text-left max-h-60 overflow-y-auto">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Uploaded Files</h3>
-            <div className="space-y-3">
-              {files.map((f) => (
-                <div key={f.id} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                  {getFileIcon(f.file.name)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-gray-800 truncate">{f.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-full">
-                        {f.category}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {(f.file.size / (1024 * 1024)).toFixed(2)} MB
-                      </span>
+          {uploadResult && uploadResult.uploaded && uploadResult.uploaded.length > 0 && (
+            <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 mb-6 text-left max-h-60 overflow-y-auto">
+              <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3 px-1 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Uploaded Successfully ({uploadResult.uploaded.length})
+              </h3>
+              <div className="space-y-3">
+                {uploadResult.uploaded.map((uploadedItem, idx) => {
+                  // Find original file entry to get size/extension
+                  const originalFile = files.find(f => f.file.name === uploadedItem.fileName);
+                  const fileSizeStr = originalFile 
+                    ? `${(originalFile.file.size / (1024 * 1024)).toFixed(2)} MB`
+                    : '';
+
+                  return (
+                    <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                      {getFileIcon(uploadedItem.fileName)}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-800 truncate">{uploadedItem.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-full">
+                            {uploadedItem.category}
+                          </span>
+                          {fileSizeStr && (
+                            <span className="text-xs text-gray-400 font-medium">
+                              {fileSizeStr}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Failed uploads summary */}
+          {uploadResult && uploadResult.failed && uploadResult.failed.length > 0 && (
+            <div className="bg-red-50/50 rounded-2xl border border-red-100 p-4 mb-6 text-left max-h-60 overflow-y-auto">
+              <h3 className="text-xs font-bold text-red-700 uppercase tracking-wider mb-3 px-1 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                Failed Uploads ({uploadResult.failed.length})
+              </h3>
+              <div className="space-y-3">
+                {uploadResult.failed.map((failedItem, idx) => (
+                  <div key={idx} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-red-100 shadow-sm">
+                    {getFileIcon(failedItem.fileName)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-700 truncate">{failedItem.fileName}</p>
+                      <p className="text-xs font-semibold text-red-600 mt-0.5">
+                        {failedItem.reason}
+                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               onClick={handleReset}
-              className="w-full sm:w-auto px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+              className="w-full sm:w-auto px-5 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors shadow-sm text-sm"
             >
               Upload More Materials
             </button>
             <Link
+              to={`/teacher/courses/${courseId}/materials`}
+              className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-colors shadow-md shadow-emerald-600/10 text-center text-sm"
+            >
+              Manage Course Materials
+            </Link>
+            <Link
               to="/teacher/dashboard"
-              className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-colors shadow-md shadow-emerald-600/10 text-center"
+              className="w-full sm:w-auto px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors text-center text-sm"
             >
               Back to Dashboard
             </Link>
