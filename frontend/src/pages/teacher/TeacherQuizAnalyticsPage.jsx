@@ -1,103 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getQuizAnalytics } from '../../services/quizService';
 import LiveLeaderboard from '../../components/quiz/LiveLeaderboard';
 import OptionDistributionBar from '../../components/quiz/OptionDistributionBar';
-
-// ════════════════════════════════════════════════════════════════════════════
-// TODO: Connect to GET /api/quizzes/:quizId/analytics (teacher) in Story 11
-// Replace mockAnalyticsData with real API response.
-// ════════════════════════════════════════════════════════════════════════════
-
-const mockAnalyticsData = {
-  quizTitle: 'Data Structures — Midterm Quiz',
-  status: 'closed', // 'launched' | 'closed'
-  overallStats: {
-    averageScore: 682,
-    maxPossibleScore: 1000,
-    totalEnrolled: 35,
-    totalResponded: 28,
-    completionRate: 80,   // percentage
-    averageResponseTimeMs: 12400,
-    totalQuestions: 5,
-  },
-  leaderboard: [
-    { studentId: 'stu-1', name: 'Alice Smith', score: 980, rank: 1 },
-    { studentId: 'stu-2', name: 'Bob Johnson', score: 920, rank: 2 },
-    { studentId: 'stu-3', name: 'Charlie Brown', score: 880, rank: 3 },
-    { studentId: 'stu-4', name: 'David Lee', score: 720, rank: 4 },
-    { studentId: 'stu-5', name: 'Emma Watson', score: 710, rank: 5 },
-    { studentId: 'stu-6', name: 'Frank Miller', score: 680, rank: 6 },
-    { studentId: 'stu-7', name: 'Grace Hopper', score: 620, rank: 7 },
-    { studentId: 'stu-8', name: 'Henry Ford', score: 580, rank: 8 },
-    { studentId: 'stu-9', name: 'Ivy League', score: 540, rank: 9 },
-    { studentId: 'stu-10', name: 'Jack Daniels', score: 510, rank: 10 },
-    { studentId: 'stu-11', name: 'Karen White', score: 490, rank: 11 },
-    { studentId: 'stu-12', name: 'Leo Davis', score: 460, rank: 12 },
-  ],
-  questionAnalytics: [
-    {
-      questionIndex: 0,
-      questionText: 'Which data structure uses LIFO (Last In, First Out) principle?',
-      totalResponses: 28,
-      correctCount: 24,
-      options: [
-        { optionId: 'opt-1a', optionText: 'Queue', count: 2, isCorrect: false },
-        { optionId: 'opt-1b', optionText: 'Stack', count: 24, isCorrect: true },
-        { optionId: 'opt-1c', optionText: 'Linked List', count: 1, isCorrect: false },
-        { optionId: 'opt-1d', optionText: 'Tree', count: 1, isCorrect: false },
-      ],
-    },
-    {
-      questionIndex: 1,
-      questionText: 'What is the time complexity of binary search?',
-      totalResponses: 28,
-      correctCount: 22,
-      options: [
-        { optionId: 'opt-2a', optionText: 'O(n)', count: 4, isCorrect: false },
-        { optionId: 'opt-2b', optionText: 'O(log n)', count: 22, isCorrect: true },
-        { optionId: 'opt-2c', optionText: 'O(n²)', count: 1, isCorrect: false },
-        { optionId: 'opt-2d', optionText: 'O(1)', count: 1, isCorrect: false },
-      ],
-    },
-    {
-      questionIndex: 2,
-      questionText: 'Which traversal visits the root node first?',
-      totalResponses: 27,
-      correctCount: 18,
-      options: [
-        { optionId: 'opt-3a', optionText: 'In-order', count: 5, isCorrect: false },
-        { optionId: 'opt-3b', optionText: 'Post-order', count: 2, isCorrect: false },
-        { optionId: 'opt-3c', optionText: 'Pre-order', count: 18, isCorrect: true },
-        { optionId: 'opt-3d', optionText: 'Level-order', count: 2, isCorrect: false },
-      ],
-    },
-    {
-      questionIndex: 3,
-      questionText: 'What is the worst-case time complexity of Quick Sort?',
-      totalResponses: 26,
-      correctCount: 12,
-      options: [
-        { optionId: 'opt-4a', optionText: 'O(n log n)', count: 10, isCorrect: false },
-        { optionId: 'opt-4b', optionText: 'O(n²)', count: 12, isCorrect: true },
-        { optionId: 'opt-4c', optionText: 'O(n)', count: 2, isCorrect: false },
-        { optionId: 'opt-4d', optionText: 'O(log n)', count: 2, isCorrect: false },
-      ],
-    },
-    {
-      questionIndex: 4,
-      questionText: 'Which data structure is used for BFS (Breadth-First Search)?',
-      totalResponses: 28,
-      correctCount: 25,
-      options: [
-        { optionId: 'opt-5a', optionText: 'Stack', count: 2, isCorrect: false },
-        { optionId: 'opt-5b', optionText: 'Queue', count: 25, isCorrect: true },
-        { optionId: 'opt-5c', optionText: 'Priority Queue', count: 1, isCorrect: false },
-        { optionId: 'opt-5d', optionText: 'Deque', count: 0, isCorrect: false },
-      ],
-    },
-  ],
-};
 
 const TeacherQuizAnalyticsPage = () => {
   const { courseId, quizId } = useParams();
@@ -109,22 +15,22 @@ const TeacherQuizAnalyticsPage = () => {
   const [quizInProgress, setQuizInProgress] = useState(false);
 
   useEffect(() => {
-    // TODO: Replace with real API call in Story 11
-    // GET /api/quizzes/:quizId/analytics
     const fetchAnalytics = async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 600));
+        const res = await getQuizAnalytics(quizId, token);
 
-        const data = mockAnalyticsData;
+        if (res.success) {
+          // Handle "quiz still in progress" edge case
+          if (res.status && res.status !== 'closed') {
+            setQuizInProgress(true);
+            setLoading(false);
+            return;
+          }
 
-        // Handle "quiz still in progress" edge case
-        if (data.status === 'launched') {
-          setQuizInProgress(true);
-          setLoading(false);
-          return;
+          setAnalytics(res.data);
+        } else {
+          console.error('Failed to fetch quiz analytics:', res.message);
         }
-
-        setAnalytics(data);
       } catch (err) {
         console.error('Failed to fetch quiz analytics:', err);
       } finally {

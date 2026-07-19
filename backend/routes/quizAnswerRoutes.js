@@ -20,4 +20,22 @@ router.get(
   quizController.getLeaderboard
 );
 
+// GET /api/quizzes/:quizId/results
+// Student results route
+router.get(
+  '/:quizId/results',
+  authMiddleware,
+  roleMiddleware(['student']),
+  quizController.getMyQuizResults
+);
+
+// GET /api/quizzes/:quizId/analytics
+// Teacher analytics route
+router.get(
+  '/:quizId/analytics',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+  quizController.getQuizAnalytics
+);
+
 module.exports = router;

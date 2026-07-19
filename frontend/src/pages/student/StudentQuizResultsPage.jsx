@@ -1,97 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getMyQuizResults } from '../../services/quizService';
 import QuestionBreakdown from '../../components/quiz/QuestionBreakdown';
-
-// ════════════════════════════════════════════════════════════════════════════
-// TODO: Connect to GET /api/quizzes/:quizId/results (student) in Story 11
-// Replace mockResultsData with real API response.
-// ════════════════════════════════════════════════════════════════════════════
-
-const mockResultsData = {
-  quizTitle: 'Data Structures — Midterm Quiz',
-  status: 'closed', // 'launched' | 'closed'
-  totalParticipants: 28,
-  studentResult: {
-    rank: 4,
-    totalScore: 720,
-    maxPossibleScore: 1000,
-    correctCount: 4,
-    totalQuestions: 5,
-  },
-  questions: [
-    {
-      questionIndex: 0,
-      questionText: 'Which data structure uses LIFO (Last In, First Out) principle?',
-      options: [
-        { optionId: 'opt-1a', optionText: 'Queue' },
-        { optionId: 'opt-1b', optionText: 'Stack' },
-        { optionId: 'opt-1c', optionText: 'Linked List' },
-        { optionId: 'opt-1d', optionText: 'Tree' },
-      ],
-      selectedOptionId: 'opt-1b',
-      correctOptionId: 'opt-1b',
-      isCorrect: true,
-      pointsEarned: 185,
-    },
-    {
-      questionIndex: 1,
-      questionText: 'What is the time complexity of binary search?',
-      options: [
-        { optionId: 'opt-2a', optionText: 'O(n)' },
-        { optionId: 'opt-2b', optionText: 'O(log n)' },
-        { optionId: 'opt-2c', optionText: 'O(n²)' },
-        { optionId: 'opt-2d', optionText: 'O(1)' },
-      ],
-      selectedOptionId: 'opt-2b',
-      correctOptionId: 'opt-2b',
-      isCorrect: true,
-      pointsEarned: 165,
-    },
-    {
-      questionIndex: 2,
-      questionText: 'Which traversal visits the root node first?',
-      options: [
-        { optionId: 'opt-3a', optionText: 'In-order' },
-        { optionId: 'opt-3b', optionText: 'Post-order' },
-        { optionId: 'opt-3c', optionText: 'Pre-order' },
-        { optionId: 'opt-3d', optionText: 'Level-order' },
-      ],
-      selectedOptionId: 'opt-3c',
-      correctOptionId: 'opt-3c',
-      isCorrect: true,
-      pointsEarned: 195,
-    },
-    {
-      questionIndex: 3,
-      questionText: 'What is the worst-case time complexity of Quick Sort?',
-      options: [
-        { optionId: 'opt-4a', optionText: 'O(n log n)' },
-        { optionId: 'opt-4b', optionText: 'O(n²)' },
-        { optionId: 'opt-4c', optionText: 'O(n)' },
-        { optionId: 'opt-4d', optionText: 'O(log n)' },
-      ],
-      selectedOptionId: 'opt-4a',
-      correctOptionId: 'opt-4b',
-      isCorrect: false,
-      pointsEarned: 0,
-    },
-    {
-      questionIndex: 4,
-      questionText: 'Which data structure is used for BFS (Breadth-First Search)?',
-      options: [
-        { optionId: 'opt-5a', optionText: 'Stack' },
-        { optionId: 'opt-5b', optionText: 'Queue' },
-        { optionId: 'opt-5c', optionText: 'Priority Queue' },
-        { optionId: 'opt-5d', optionText: 'Deque' },
-      ],
-      selectedOptionId: 'opt-5b',
-      correctOptionId: 'opt-5b',
-      isCorrect: true,
-      pointsEarned: 175,
-    },
-  ],
-};
 
 const StudentQuizResultsPage = () => {
   const { courseId, quizId } = useParams();
@@ -103,23 +14,22 @@ const StudentQuizResultsPage = () => {
   const [quizInProgress, setQuizInProgress] = useState(false);
 
   useEffect(() => {
-    // TODO: Replace with real API call in Story 11
-    // GET /api/quizzes/:quizId/results
     const fetchResults = async () => {
       try {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 600));
+        const res = await getMyQuizResults(quizId, token);
 
-        const data = mockResultsData;
+        if (res.success) {
+          // Handle "quiz still in progress" edge case
+          if (res.status && res.status !== 'closed') {
+            setQuizInProgress(true);
+            setLoading(false);
+            return;
+          }
 
-        // Handle "quiz still in progress" edge case
-        if (data.status === 'launched') {
-          setQuizInProgress(true);
-          setLoading(false);
-          return;
+          setResults(res.data);
+        } else {
+          console.error('Failed to fetch quiz results:', res.message);
         }
-
-        setResults(data);
       } catch (err) {
         console.error('Failed to fetch quiz results:', err);
       } finally {
