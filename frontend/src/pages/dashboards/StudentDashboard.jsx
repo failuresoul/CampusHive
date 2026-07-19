@@ -7,7 +7,6 @@ import {
   ClipboardCheck,
   Calendar,
   LogOut,
-  Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import StudentNotificationBell from '../../components/student/NotificationBell';
@@ -98,31 +97,6 @@ const StudentDashboard = () => {
           <StatCard icon={Star} label="GPA" value="—" color="bg-orange-500" />
           <StatCard icon={ClipboardCheck} label="Assignments Due" value="—" color="bg-rose-500" />
           <StatCard icon={Calendar} label="Upcoming Exams" value="—" color="bg-pink-500" />
-        </div>
-
-        {/* Study Circles */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm hover:shadow-md transition-shadow mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Users className="h-6 w-6 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">Study Circles</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Organize peer study groups or join collaborative study sessions. Create review sessions for exams, lab assignments, or topics.
-                </p>
-              </div>
-            </div>
-            <div className="flex-shrink-0">
-              <Link
-                to="/student/study-sessions/create"
-                className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium rounded-xl transition-all shadow-md shadow-amber-500/10 active:scale-[0.98]"
-              >
-                Post Study Session
-              </Link>
-            </div>
-          </div>
         </div>
 
         {/* Coming Soon */}
