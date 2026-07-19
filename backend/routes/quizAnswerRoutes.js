@@ -12,4 +12,12 @@ router.post(
   quizController.submitAnswerREST
 );
 
+// GET /api/quizzes/:quizId/leaderboard
+// Resync fallback — accessible by both teachers and students (no role restriction)
+router.get(
+  '/:quizId/leaderboard',
+  authMiddleware,
+  quizController.getLeaderboard
+);
+
 module.exports = router;

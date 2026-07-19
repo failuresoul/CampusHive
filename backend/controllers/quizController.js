@@ -263,3 +263,23 @@ exports.submitAnswerREST = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to record answer.' });
   }
 };
+
+// ── Leaderboard REST fallback (Story 9) ──────────────────────────────────
+// GET /api/quizzes/:quizId/leaderboard
+// Returns the current ranked leaderboard for a quiz, computed on-the-fly
+// from persisted QuizResponse scores. Useful as a resync source when a
+// client reconnects mid-quiz and needs the current state immediately
+// rather than waiting for the next socket broadcast.
+const { computeLeaderboard } = require('../services/leaderboardService');
+
+exports.getLeaderboard = async (req, res) => {
+  const { quizId } = req.params;
+
+  try {
+    const leaderboard = await computeLeaderboard(quizId);
+    res.json({ success: true, data: leaderboard });
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch leaderboard.' });
+  }
+};

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '../../context/AuthContext';
-import { getQuizDetails, launchQuiz } from '../../services/quizService';
+import { getQuizDetails, launchQuiz, getLeaderboard } from '../../services/quizService';
 import QuizPreLaunchSummary from '../../components/teacher/QuizPreLaunchSummary';
 import QuizWaitingRoom from '../../components/teacher/QuizWaitingRoom';
 import LiveLeaderboard from '../../components/quiz/LiveLeaderboard';
@@ -76,6 +76,20 @@ const QuizLaunchPage = () => {
     socket.on('leaderboard-update', (data) => {
       setLeaderboardData(data);
     });
+
+    // Fetch current leaderboard on (re)connect as resync fallback (Story 9)
+    const fetchInitialLeaderboard = async () => {
+      try {
+        const res = await getLeaderboard(quizId, token);
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setLeaderboardData(res.data);
+        }
+      } catch (err) {
+        // Not critical — live socket updates will fill it in
+        console.error('Failed to fetch initial leaderboard:', err);
+      }
+    };
+    fetchInitialLeaderboard();
 
     return () => {
       socket.off('participant-update');

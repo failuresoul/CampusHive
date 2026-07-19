@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useQuizSocket } from '../../hooks/useQuizSocket';
+import { getLeaderboard } from '../../services/quizService';
 import QuizCountdownTimer from '../../components/student/QuizCountdownTimer';
 import QuizQuestionDisplay from '../../components/student/QuizQuestionDisplay';
 import LiveLeaderboard from '../../components/quiz/LiveLeaderboard';
@@ -24,6 +25,19 @@ const QuizTakingPage = () => {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [submittedOptionId, setSubmittedOptionId] = useState(null);
   const [revealData, setRevealData] = useState(null);
+  const [leaderboardData, setLeaderboardData] = useState([]);
+
+  // REST fallback to fetch current leaderboard (resync on join/reconnect)
+  const fetchLeaderboard = async () => {
+    try {
+      const res = await getLeaderboard(quizId, token);
+      if (res.success && Array.isArray(res.data)) {
+        setLeaderboardData(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch leaderboard via REST:', err);
+    }
+  };
 
   const submitAnswerREST = async (optionId) => {
     try {
@@ -91,7 +105,11 @@ const QuizTakingPage = () => {
       courseId
     });
 
-    const handleJoined = () => setQuizState('waiting');
+    const handleJoined = () => {
+      setQuizState('waiting');
+      // Fetch current leaderboard state on join (Story 9 resync)
+      fetchLeaderboard();
+    };
     
     const handleSyncState = (data) => {
       // Reconnected mid-quiz
@@ -111,6 +129,8 @@ const QuizTakingPage = () => {
       }
       
       setQuizState('active');
+      // Fetch current leaderboard on reconnect (Story 9 resync)
+      fetchLeaderboard();
     };
 
     const handleQuestionStarted = (data) => {
@@ -303,7 +323,8 @@ const QuizTakingPage = () => {
 
                     <div className="mt-2">
                       <LiveLeaderboard 
-                        currentStudentId={user?.id || 'stu-student'} 
+                        leaderboardData={leaderboardData}
+                        currentStudentId={user?.id} 
                         isCompact={true}
                         socket={socket}
                       />

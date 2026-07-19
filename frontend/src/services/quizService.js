@@ -79,3 +79,26 @@ export const launchQuiz = async (courseId, quizId, token) => {
     throw new Error('An unexpected error occurred while launching the quiz.');
   }
 };
+
+/**
+ * Fetches the current leaderboard for a quiz (REST fallback / resync).
+ * GET /api/quizzes/:quizId/leaderboard
+ */
+export const getLeaderboard = async (quizId, token) => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/quizzes/${quizId}/leaderboard`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      throw error.response.data;
+    }
+    throw new Error('An unexpected error occurred while fetching leaderboard.');
+  }
+};

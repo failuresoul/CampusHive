@@ -1,4 +1,5 @@
 const { Quiz, QuizQuestion, QuizOption, Enrollment, QuizResponse } = require('../models/associations');
+const { computeScore } = require('./leaderboardService');
 
 // In-memory state shared across socket and REST API
 // quizzes[sessionId] = { teacherSocketId, questionIndex, timer, ... }
@@ -55,7 +56,11 @@ const submitAnswer = async ({ quizId, questionId, studentId, optionId }) => {
   // 6. Record responseTimeMs based on server's own question-start timestamp
   const responseTimeMs = state.questionStartedAt ? (Date.now() - state.questionStartedAt) : 0;
 
-  // 7. Write to the database
+  // 7. Compute per-question score using the scoring rule (base + speed bonus)
+  const timeLimitSeconds = state.quizData.timeLimitPerQuestion;
+  const score = computeScore(option.isCorrect, responseTimeMs, timeLimitSeconds);
+
+  // 8. Write to the database
   const response = await QuizResponse.create({
     quizId,
     questionId,
@@ -63,7 +68,8 @@ const submitAnswer = async ({ quizId, questionId, studentId, optionId }) => {
     selectedOptionId: optionId,
     isCorrect: option.isCorrect,
     answeredAt: new Date(),
-    responseTimeMs
+    responseTimeMs,
+    score
   });
 
   return response;
