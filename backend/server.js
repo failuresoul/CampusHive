@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const sequelize = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
@@ -11,7 +13,17 @@ const quizRoutes = require('./routes/quizRoutes');
 require('./models/associations'); // Force models and associations to be loaded for sync
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
 const PORT = process.env.PORT || 5000;
+
+// Initialize WebSockets
+require('./sockets/quizSocket')(io);
 
 // Middleware
 app.use(cors());
@@ -32,7 +44,7 @@ app.use('/api/lab-reports', labReportRoutes);
 sequelize.sync()
   .then(() => {
     console.log('Database synced successfully');
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   })

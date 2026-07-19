@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
 
-const QuizWaitingRoom = ({ quiz, onBeginQuiz }) => {
+const QuizWaitingRoom = ({ quiz, onBeginQuiz, socket }) => {
   const [studentsJoined, setStudentsJoined] = useState(0);
 
-  // Simulate students joining over time
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStudentsJoined(prev => {
-        // Randomly add 0-3 students
-        const joined = Math.floor(Math.random() * 4);
-        return prev + joined;
-      });
-    }, 2000);
+    if (!socket) return;
 
-    return () => clearInterval(interval);
-  }, []);
+    const handleParticipantUpdate = (data) => {
+      setStudentsJoined(data.count);
+    };
+
+    socket.on('participant-update', handleParticipantUpdate);
+
+    return () => {
+      socket.off('participant-update', handleParticipantUpdate);
+    };
+  }, [socket]);
 
   if (!quiz) return null;
 
